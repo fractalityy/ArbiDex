@@ -1,7 +1,3 @@
-/**
- *Submitted for verification at Arbiscan on 2023-03-01
-*/
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
@@ -541,27 +537,211 @@ library SafeERC20 {
         }
     }
 }
+
+pragma solidity >=0.4.0;
+
+/**
+ * @dev Wrappers over Solidity's arithmetic operations with added overflow
+ * checks.
+ *
+ * Arithmetic operations in Solidity wrap on overflow. This can easily result
+ * in bugs, because programmers usually assume that an overflow raises an
+ * error, which is the standard behavior in high level programming languages.
+ * `SafeMath` restores this intuition by reverting the transaction when an
+ * operation overflows.
+ *
+ * Using this library instead of the unchecked operations eliminates an entire
+ * class of bugs, so it's recommended to use it always.
+ */
+library SafeMath {
+    /**
+     * @dev Returns the addition of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `+` operator.
+     *
+     * Requirements:
+     *
+     * - Addition cannot overflow.
+     */
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        require(c >= a, 'SafeMath: addition overflow');
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        return sub(a, b, 'SafeMath: subtraction overflow');
+    }
+
+    /**
+     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+     * overflow (when the result is negative).
+     *
+     * Counterpart to Solidity's `-` operator.
+     *
+     * Requirements:
+     *
+     * - Subtraction cannot overflow.
+     */
+    function sub(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        require(b <= a, errorMessage);
+        uint256 c = a - b;
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the multiplication of two unsigned integers, reverting on
+     * overflow.
+     *
+     * Counterpart to Solidity's `*` operator.
+     *
+     * Requirements:
+     *
+     * - Multiplication cannot overflow.
+     */
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+        // benefit is lost if 'b' is also tested.
+        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+        if (a == 0) {
+            return 0;
+        }
+
+        uint256 c = a * b;
+        require(c / a == b, 'SafeMath: multiplication overflow');
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        return div(a, b, 'SafeMath: division by zero');
+    }
+
+    /**
+     * @dev Returns the integer division of two unsigned integers. Reverts with custom message on
+     * division by zero. The result is rounded towards zero.
+     *
+     * Counterpart to Solidity's `/` operator. Note: this function uses a
+     * `revert` opcode (which leaves remaining gas untouched) while Solidity
+     * uses an invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function div(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        require(b > 0, errorMessage);
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+
+        return c;
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
+        return mod(a, b, 'SafeMath: modulo by zero');
+    }
+
+    /**
+     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+     * Reverts with custom message when dividing by zero.
+     *
+     * Counterpart to Solidity's `%` operator. This function uses a `revert`
+     * opcode (which leaves remaining gas untouched) while Solidity uses an
+     * invalid opcode to revert (consuming all remaining gas).
+     *
+     * Requirements:
+     *
+     * - The divisor cannot be zero.
+     */
+    function mod(
+        uint256 a,
+        uint256 b,
+        string memory errorMessage
+    ) internal pure returns (uint256) {
+        require(b != 0, errorMessage);
+        return a % b;
+    }
+
+    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        z = x < y ? x : y;
+    }
+
+    // babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
+    function sqrt(uint256 y) internal pure returns (uint256 z) {
+        if (y > 3) {
+            z = y;
+            uint256 x = y / 2 + 1;
+            while (x < z) {
+                z = x;
+                x = (y / x + x) / 2;
+            }
+        } else if (y != 0) {
+            z = 1;
+        }
+    }
+}
+
 // File: contracts/SmartChefInitializable.sol
 
 contract SmartChefInitializable is Ownable, ReentrancyGuard {
+    using SafeMath for uint256;
     using SafeERC20 for IERC20Metadata;
-
-    // Whether it is initialized
-    bool public isInitialized;
 
     // Accrued token per share
     uint256 public accTokenPerShare;
 
-    // The time when ARBI mining ends.
-    uint256 public bonusEndTime;
-
-    // The time when ARBI mining starts.
+    // The time when ARX mining starts.
     uint256 public startTime;
 
     // The time of the last pool update
     uint256 public lastRewardTime;
 
-    // ARBI tokens created per sec.
+    // ARX tokens created per sec.
     uint256 public rewardPerSec;
 
     // The precision factor
@@ -573,7 +753,10 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     // The staked token
     IERC20Metadata public stakedToken;
 
-    address dao = 0xE8FFE751deA181025a9ACf3D6Bde8cdA5380F53F;
+    // Are rewards currently active? Can users earn the reward token for staking the staked token?
+    bool rewardsActive = false;
+
+    address feeTo = 0xE8FFE751deA181025a9ACf3D6Bde8cdA5380F53F;
 
     // Info of each user that stakes tokens (stakedToken)
     mapping(address => UserInfo) public userInfo;
@@ -584,44 +767,26 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     }
 
     event Deposit(address indexed user, uint256 amount);
-    event EmergencyWithdraw(address indexed user, uint256 amount);
-    event NewStartAndEndBlocks(uint256 startTime, uint256 endBlock);
-    event NewRewardPerBlock(uint256 rewardPerSec);
-    event NewPoolLimit(uint256 poolLimitPerUser);
-    event RewardsStop(uint256 timestamp);
-    event TokenRecovery(address indexed token, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
-    event UpdateProfileAndThresholdPointsRequirement(bool isProfileRequested, uint256 thresholdPoints);
-
-    constructor() {
-        transferOwnership(msg.sender);
-    }
+    event EmergencyWithdraw(address indexed user, uint256 amount);
+    event UpdateEmissions(uint256 rewardPerSec);
 
     /*
      * @notice Initialize the contract
      * @param _stakedToken: staked token address
      * @param _rewardToken: reward token address
      * @param _rewardPerSec: reward per time (in rewardToken)
-     * @param _startTime: start time
-     * @param _bonusEndTime: end time
-     */
-    function initialize(
+     * @param _startTime: timestamp at which rewards will start
+    */
+    constructor(
         IERC20Metadata _stakedToken,
         IERC20Metadata _rewardToken,
         uint256 _rewardPerSec,
-        uint256 _startTime,
-        uint256 _bonusEndTime
-    ) external onlyOwner {
-        require(!isInitialized, "Already initialized");
-
-        // Make this contract initialized
-        isInitialized = true;
-
+        uint256 _startTime
+    ) {
         stakedToken = _stakedToken;
         rewardToken = _rewardToken;
         rewardPerSec = _rewardPerSec;
-        startTime = _startTime;
-        bonusEndTime = _bonusEndTime;
 
         uint256 decimalsRewardToken = uint256(rewardToken.decimals());
         require(decimalsRewardToken < 30, "Must be less than 30");
@@ -629,7 +794,39 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         PRECISION_FACTOR = uint256(10**(uint256(30) - decimalsRewardToken));
 
         // Set the lastRewardTime as the startTime
-        lastRewardTime = startTime;
+        lastRewardTime = _startTime;
+    }
+
+    /*
+     * @notice Change the start time of the rewards, this can only be done if rewards have not started. Timestamp provided must also be at current block or later
+     * @param _startTime: The timestamp of when minting of rewards can occur
+    */
+    function setStartTime(uint256 _startTime) public onlyOwner {
+        require(block.timestamp <= startTime, "Operations: Rewards already started");
+        require(_startTime >= block.timestamp, "Operations: Invalid start time");
+        startTime = _startTime;
+        lastRewardTime = _startTime;
+    }
+
+    /*
+     * @notice Update the address that fees are sent to
+     * @param _feeTo: address where fees should be transferred
+    */
+    function setFeeTo(address _feeTo) public onlyOwner {
+        feeTo = _feeTo;
+    }
+
+    /*
+     * @notice Update the rewardsActive boolean variable
+     * @param _rewardsActive: are rewards active or no, true/false
+    */
+    function setRewardsActive(bool _rewardsActive) public onlyOwner {
+        require(block.timestamp >= startTime, "Operations: Rewards have not yet started anyways");
+        require(_rewardsActive != rewardsActive, "Operations: Rewards active is already set to that");
+        if (_rewardsActive == true) {
+            lastRewardTime = block.timestamp;
+        }
+        rewardsActive = _rewardsActive;
     }
 
     /*
@@ -637,6 +834,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @param _amount: amount to withdraw (in rewardToken)
      */
     function deposit(uint256 _amount) external nonReentrant {
+        require(rewardsActive == true, "Operations: Rewards are not currently active");
         UserInfo storage user = userInfo[msg.sender];
 
         _updatePool();
@@ -650,10 +848,10 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
 
         if (_amount > 0) {
             stakedToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-            uint256 fee = _amount/100;
+            uint256 fee = _amount/100; // 1% fee
             _amount = _amount-fee;
             user.amount = user.amount + _amount;
-            stakedToken.safeTransfer(dao,fee);
+            stakedToken.safeTransfer(feeTo,fee);
         }
 
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
@@ -705,64 +903,15 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Stop rewards
-     * @dev Only callable by owner. Needs to be for emergency.
-     */
-    function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
-        rewardToken.safeTransfer(address(msg.sender), _amount);
-    }
-
-    /**
-     * @notice Allows the owner to recover tokens sent to the contract by mistake
-     * @param _token: token address
-     * @dev Callable by owner
-     */
-    function recoverToken(address _token) external onlyOwner {
-        uint256 balance = IERC20Metadata(_token).balanceOf(address(this));
-        require(balance != 0, "Operations: Cannot recover zero balance");
-
-        IERC20Metadata(_token).safeTransfer(address(msg.sender), balance);
-
-        emit TokenRecovery(_token, balance);
-    }
-
-    /*
-     * @notice Stop rewards
-     * @dev Only callable by owner
-     */
-    function stopReward() external onlyOwner {
-        bonusEndTime = block.timestamp;
-    }
-
-    /*
      * @notice Update reward per sec
-     * @dev Only callable by owner.
      * @param _rewardPerSec: the reward per sec
      */
-    function updateRewardPerBlock(uint256 _rewardPerSec) external onlyOwner {
-        require(block.timestamp < startTime, "Pool has started");
+    function setRewardsPerSec(uint256 _rewardPerSec) external onlyOwner {
+        require(_rewardPerSec.mul(100).div(rewardPerSec) >= 90, "Max 10% decrease per transaction.");
+        require(_rewardPerSec.mul(100).div(rewardPerSec) <= 110, "Max 10% increase per transaction.");
         rewardPerSec = _rewardPerSec;
-        emit NewRewardPerBlock(_rewardPerSec);
-    }
-
-    /**
-     * @notice It allows the admin to update start and end times
-     * @dev This function is only callable by owner.
-     * @param _startTime: the new start time
-     * @param _bonusEndTime: the new end time
-     */
-    function updateStartAndEndBlocks(uint256 _startTime, uint256 _bonusEndTime) external onlyOwner {
-        require(block.timestamp < startTime, "Pool has started");
-        require(_startTime < _bonusEndTime, "New startTime must be lower than new endBlock");
-        require(block.timestamp < _startTime, "New startTime must be higher than current time");
-
-        startTime = _startTime;
-        bonusEndTime = _bonusEndTime;
-
-        // Set the lastRewardTime as the startTime
-        lastRewardTime = startTime;
-
-        emit NewStartAndEndBlocks(_startTime, _bonusEndTime);
+        
+        emit UpdateEmissions(_rewardPerSec);
     }
 
     /*
@@ -775,8 +924,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         uint256 stakedTokenSupply = stakedToken.balanceOf(address(this));
         if (block.timestamp > lastRewardTime && stakedTokenSupply != 0) {
             uint256 multiplier = _getMultiplier(lastRewardTime, block.timestamp);
-            uint256 arbiReward = multiplier * rewardPerSec;
-            uint256 adjustedTokenPerShare = accTokenPerShare + (arbiReward * PRECISION_FACTOR) / stakedTokenSupply;
+            uint256 ARXReward = multiplier * rewardPerSec;
+            uint256 adjustedTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
             return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         } else {
             return (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
@@ -799,8 +948,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         }
 
         uint256 multiplier = _getMultiplier(lastRewardTime, block.timestamp);
-        uint256 arbiReward = multiplier * rewardPerSec;
-        accTokenPerShare = accTokenPerShare + (arbiReward * PRECISION_FACTOR) / stakedTokenSupply;
+        uint256 ARXReward = multiplier * rewardPerSec;
+        accTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
         lastRewardTime = block.timestamp;
     }
 
@@ -809,13 +958,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @param _from: time to start
      * @param _to: time to finish
      */
-    function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
-        if (_to <= bonusEndTime) {
-            return _to - _from;
-        } else if (_from >= bonusEndTime) {
-            return 0;
-        } else {
-            return bonusEndTime - _from;
-        }
+    function _getMultiplier(uint256 _from, uint256 _to) internal pure returns (uint256) {
+        return _to.sub(_from).mul(1);
     }
 }

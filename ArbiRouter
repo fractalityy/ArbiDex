@@ -29,7 +29,7 @@ library TransferHelper {
     }
 }
 
-// File: contracts\interfaces\IArbiDexRouter01.sol
+// File: contracts\interfaces\IDexRouter01.sol
 
 pragma solidity >=0.6.2;
 
@@ -172,11 +172,11 @@ interface IArbiDexRouter02 is IArbiDexRouter01 {
     ) external;
 }
 
-// File: contracts\interfaces\IArbiDexFactory.sol
+// File: contracts\interfaces\IArbDexFactory.sol
 
 pragma solidity >=0.5.0;
 
-interface IArbiDexFactory {
+interface IArbDexFactory {
     event PairCreated(address indexed token0, address indexed token1, address pair, uint);
 
     function feeTo() external view returns (address);
@@ -213,11 +213,11 @@ library SafeMath {
     }
 }
 
-// File: contracts\interfaces\IArbiDexPair.sol
+// File: contracts\interfaces\IArbDexPair.sol
 
 pragma solidity >=0.5.0;
 
-interface IArbiDexPair {
+interface IArbDexPair {
     event Approval(address indexed owner, address indexed spender, uint value);
     event Transfer(address indexed from, address indexed to, uint value);
 
@@ -414,8 +414,8 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         uint amountBMin
     ) internal virtual returns (uint amountA, uint amountB) {
         // create the pair if it doesn't exist yet
-        if (IArbiDexFactory(factory).getPair(tokenA, tokenB) == address(0)) {
-            IArbiDexFactory(factory).createPair(tokenA, tokenB);
+        if (IArbDexFactory(factory).getPair(tokenA, tokenB) == address(0)) {
+            IArbDexFactory(factory).createPair(tokenA, tokenB);
         }
         (uint reserveA, uint reserveB) = ArbiDexLibrary.getReserves(factory, tokenA, tokenB);
         if (reserveA == 0 && reserveB == 0) {
@@ -447,7 +447,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         address pair = ArbiDexLibrary.pairFor(factory, tokenA, tokenB);
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        liquidity = IArbiDexPair(pair).mint(to);
+        liquidity = IArbDexPair(pair).mint(to);
     }
     function addLiquidityETH(
         address token,
@@ -485,8 +485,8 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         uint deadline
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
         address pair = ArbiDexLibrary.pairFor(factory, tokenA, tokenB);
-        IArbiDexPair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
-        (uint amount0, uint amount1) = IArbiDexPair(pair).burn(to);
+        IArbDexPair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
+        (uint amount0, uint amount1) = IArbDexPair(pair).burn(to);
         (address token0,) = ArbiDexLibrary.sortTokens(tokenA, tokenB);
         (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
         require(amountA >= amountAMin, 'ArbiDexRouter: INSUFFICIENT_A_AMOUNT');
@@ -525,7 +525,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
     ) external virtual override returns (uint amountA, uint amountB) {
         address pair = ArbiDexLibrary.pairFor(factory, tokenA, tokenB);
         uint value = approveMax ? uint(-1) : liquidity;
-        IArbiDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
+        IArbDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
     }
     function removeLiquidityETHWithPermit(
@@ -539,7 +539,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
     ) external virtual override returns (uint amountToken, uint amountETH) {
         address pair = ArbiDexLibrary.pairFor(factory, token, WETH);
         uint value = approveMax ? uint(-1) : liquidity;
-        IArbiDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
+        IArbDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         (amountToken, amountETH) = removeLiquidityETH(token, liquidity, amountTokenMin, amountETHMin, to, deadline);
     }
 
@@ -576,7 +576,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
     ) external virtual override returns (uint amountETH) {
         address pair = ArbiDexLibrary.pairFor(factory, token, WETH);
         uint value = approveMax ? uint(-1) : liquidity;
-        IArbiDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
+        IArbDexPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         amountETH = removeLiquidityETHSupportingFeeOnTransferTokens(
             token, liquidity, amountTokenMin, amountETHMin, to, deadline
         );
@@ -591,7 +591,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             uint amountOut = amounts[i + 1];
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
             address to = i < path.length - 2 ? ArbiDexLibrary.pairFor(factory, output, path[i + 2]) : _to;
-            IArbiDexPair(ArbiDexLibrary.pairFor(factory, input, output)).swap(
+            IArbDexPair(ArbiDexLibrary.pairFor(factory, input, output)).swap(
                 amount0Out, amount1Out, to, new bytes(0)
             );
         }
@@ -697,7 +697,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = ArbiDexLibrary.sortTokens(input, output);
-            IArbiDexPair pair = IArbiDexPair(ArbiDexLibrary.pairFor(factory, input, output));
+            IArbDexPair pair = IArbDexPair(ArbiDexLibrary.pairFor(factory, input, output));
             uint amountInput;
             uint amountOutput;
             { // scope to avoid stack too deep errors

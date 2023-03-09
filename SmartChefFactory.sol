@@ -1,7 +1,3 @@
-/**
- *Submitted for verification at BscScan.com on 2021-05-05
-*/
-
 // File: @openzeppelin/contracts/utils/Context.sol
 
 // SPDX-License-Identifier: MIT
@@ -546,56 +542,6 @@ library SafeERC20 {
     }
 }
 
-// File: IPancakeProfile.sol
-
-/**
- * @title IPancakeProfile
- */
-interface IPancakeProfile {
-    function createProfile(
-        uint256 _teamId,
-        address _nftAddress,
-        uint256 _tokenId
-    ) external;
-
-    function increaseUserPoints(
-        address _userAddress,
-        uint256 _numberPoints,
-        uint256 _campaignId
-    ) external;
-
-    function removeUserPoints(address _userAddress, uint256 _numberPoints) external;
-
-    function addNftAddress(address _nftAddress) external;
-
-    function addTeam(string calldata _teamName, string calldata _teamDescription) external;
-
-    function getUserProfile(address _userAddress)
-    external
-    view
-    returns (
-        uint256,
-        uint256,
-        uint256,
-        address,
-        uint256,
-        bool
-    );
-
-    function getUserStatus(address _userAddress) external view returns (bool);
-
-    function getTeamProfile(uint256 _teamId)
-    external
-    view
-    returns (
-        string memory,
-        string memory,
-        uint256,
-        uint256,
-        bool
-    );
-}
-
 // File: contracts/SmartChefInitializable.sol
 
 contract SmartChefInitializable is Ownable, ReentrancyGuard {
@@ -613,10 +559,10 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     // Accrued token per share
     uint256 public accTokenPerShare;
 
-    // The block number when CAKE mining ends.
+    // The block number when ARX mining ends.
     uint256 public bonusEndBlock;
 
-    // The block number when CAKE mining starts.
+    // The block number when ARX mining starts.
     uint256 public startBlock;
 
     // The block number of the last pool update
@@ -628,16 +574,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     // Block numbers available for user limit (after start block)
     uint256 public numberBlocksForUserLimit;
 
-    // Pancake profile
-    IPancakeProfile public immutable pancakeProfile;
-
-    // Pancake Profile is requested
-    bool public pancakeProfileIsRequested;
-
-    // Pancake Profile points threshold
-    uint256 public pancakeProfileThresholdPoints;
-
-    // CAKE tokens created per block.
+    // ARX tokens created per block.
     uint256 public rewardPerBlock;
 
     // The precision factor
@@ -665,30 +602,9 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     event RewardsStop(uint256 blockNumber);
     event TokenRecovery(address indexed token, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
-    event UpdateProfileAndThresholdPointsRequirement(bool isProfileRequested, uint256 thresholdPoints);
 
-    /**
-     * @notice Constructor
-     * @param _pancakeProfile: Pancake Profile address
-     * @param _pancakeProfileIsRequested: Pancake Profile is requested
-     * @param _pancakeProfileThresholdPoints: Pancake Profile need threshold points
-     */
-    constructor(
-        address _pancakeProfile,
-        bool _pancakeProfileIsRequested,
-        uint256 _pancakeProfileThresholdPoints
-    ) {
+    constructor() {
         SMART_CHEF_FACTORY = msg.sender;
-
-        // Call to verify the address is correct
-        IPancakeProfile(_pancakeProfile).getTeamProfile(1);
-        pancakeProfile = IPancakeProfile(_pancakeProfile);
-
-        // if pancakeProfile is requested
-        pancakeProfileIsRequested = _pancakeProfileIsRequested;
-
-        // pancakeProfile threshold points when profile & points are requested
-        pancakeProfileThresholdPoints = _pancakeProfileThresholdPoints;
     }
 
     /*
@@ -749,23 +665,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     function deposit(uint256 _amount) external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
 
-        // Checks whether the user has an active profile
-        require(
-            (!pancakeProfileIsRequested && pancakeProfileThresholdPoints == 0) ||
-            pancakeProfile.getUserStatus(msg.sender),
-            "Deposit: Must have an active profile"
-        );
-
         uint256 numberUserPoints = 0;
-
-        if (pancakeProfileThresholdPoints > 0) {
-            (, numberUserPoints, , , , ) = pancakeProfile.getUserProfile(msg.sender);
-        }
-
-        require(
-            pancakeProfileThresholdPoints == 0 || numberUserPoints >= pancakeProfileThresholdPoints,
-            "Deposit: User has not enough points"
-        );
 
         userLimit = hasUserLimit();
 
@@ -915,19 +815,6 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         emit NewStartAndEndBlocks(_startBlock, _bonusEndBlock);
     }
 
-    /**
-     * @notice It allows the admin to update profile and thresholdPoints' requirement.
-     * @dev This function is only callable by owner.
-     * @param _isRequested: the profile is requested
-     * @param _thresholdPoints: the threshold points
-     */
-    function updateProfileAndThresholdPointsRequirement(bool _isRequested, uint256 _thresholdPoints) external onlyOwner {
-        require(_thresholdPoints >= 0, "Threshold points need to exceed 0");
-        pancakeProfileIsRequested = _isRequested;
-        pancakeProfileThresholdPoints = _thresholdPoints;
-        emit UpdateProfileAndThresholdPointsRequirement(_isRequested, _thresholdPoints);
-    }
-
     /*
      * @notice View function to see pending reward on frontend.
      * @param _user: user address
@@ -938,8 +825,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         uint256 stakedTokenSupply = stakedToken.balanceOf(address(this));
         if (block.number > lastRewardBlock && stakedTokenSupply != 0) {
             uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
-            uint256 cakeReward = multiplier * rewardPerBlock;
-            uint256 adjustedTokenPerShare = accTokenPerShare + (cakeReward * PRECISION_FACTOR) / stakedTokenSupply;
+            uint256 ARXReward = multiplier * rewardPerBlock;
+            uint256 adjustedTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
             return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         } else {
             return (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
@@ -962,8 +849,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         }
 
         uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
-        uint256 cakeReward = multiplier * rewardPerBlock;
-        accTokenPerShare = accTokenPerShare + (cakeReward * PRECISION_FACTOR) / stakedTokenSupply;
+        uint256 ARXReward = multiplier * rewardPerBlock;
+        accTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
         lastRewardBlock = block.number;
     }
 
@@ -1012,9 +899,6 @@ contract SmartChefFactory is Ownable {
      * @param _endBlock: end block
      * @param _poolLimitPerUser: pool limit per user in stakedToken (if any, else 0)
      * @param _numberBlocksForUserLimit: block numbers available for user limit (after start block)
-     * @param _pancakeProfile: Pancake Profile address
-     * @param _pancakeProfileIsRequested: Pancake Profile is requested
-     * @param _pancakeProfileThresholdPoints: Pancake Profile need threshold points
      * @param _admin: admin address with ownership
      * @return address of new smart chef contract
      */
@@ -1026,9 +910,6 @@ contract SmartChefFactory is Ownable {
         uint256 _bonusEndBlock,
         uint256 _poolLimitPerUser,
         uint256 _numberBlocksForUserLimit,
-        address _pancakeProfile,
-        bool _pancakeProfileIsRequested,
-        uint256 _pancakeProfileThresholdPoints,
         address _admin
     ) external onlyOwner {
         require(_stakedToken.totalSupply() >= 0);
@@ -1037,10 +918,7 @@ contract SmartChefFactory is Ownable {
 
         bytes memory bytecode = type(SmartChefInitializable).creationCode;
         // pass constructor argument
-        bytecode = abi.encodePacked(
-            bytecode,
-            abi.encode(_pancakeProfile, _pancakeProfileIsRequested, _pancakeProfileThresholdPoints)
-        );
+        bytecode = abi.encodePacked(bytecode);
         bytes32 salt = keccak256(abi.encodePacked(_stakedToken, _rewardToken, _startBlock));
         address smartChefAddress;
 

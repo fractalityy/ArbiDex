@@ -1,5 +1,13 @@
+/**
+ *Submitted for verification at BscScan.com on 2021-05-05
+*/
+
+// File: @openzeppelin/contracts/utils/Context.sol
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+
+//import "hardhat/console.sol";
 
 interface IERC20 {
     /**
@@ -538,211 +546,99 @@ library SafeERC20 {
     }
 }
 
-pragma solidity >=0.4.0;
+// File: IPancakeProfile.sol
 
 /**
- * @dev Wrappers over Solidity's arithmetic operations with added overflow
- * checks.
- *
- * Arithmetic operations in Solidity wrap on overflow. This can easily result
- * in bugs, because programmers usually assume that an overflow raises an
- * error, which is the standard behavior in high level programming languages.
- * `SafeMath` restores this intuition by reverting the transaction when an
- * operation overflows.
- *
- * Using this library instead of the unchecked operations eliminates an entire
- * class of bugs, so it's recommended to use it always.
+ * @title IPancakeProfile
  */
-library SafeMath {
-    /**
-     * @dev Returns the addition of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `+` operator.
-     *
-     * Requirements:
-     *
-     * - Addition cannot overflow.
-     */
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, 'SafeMath: addition overflow');
+interface IPancakeProfile {
+    function createProfile(
+        uint256 _teamId,
+        address _nftAddress,
+        uint256 _tokenId
+    ) external;
 
-        return c;
-    }
+    function increaseUserPoints(
+        address _userAddress,
+        uint256 _numberPoints,
+        uint256 _campaignId
+    ) external;
 
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting on
-     * overflow (when the result is negative).
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, 'SafeMath: subtraction overflow');
-    }
+    function removeUserPoints(address _userAddress, uint256 _numberPoints) external;
 
-    /**
-     * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
-     * overflow (when the result is negative).
-     *
-     * Counterpart to Solidity's `-` operator.
-     *
-     * Requirements:
-     *
-     * - Subtraction cannot overflow.
-     */
-    function sub(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
+    function addNftAddress(address _nftAddress) external;
 
-        return c;
-    }
+    function addTeam(string calldata _teamName, string calldata _teamDescription) external;
 
-    /**
-     * @dev Returns the multiplication of two unsigned integers, reverting on
-     * overflow.
-     *
-     * Counterpart to Solidity's `*` operator.
-     *
-     * Requirements:
-     *
-     * - Multiplication cannot overflow.
-     */
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
-        // benefit is lost if 'b' is also tested.
-        // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
-        if (a == 0) {
-            return 0;
-        }
+    function getUserProfile(address _userAddress)
+    external
+    view
+    returns (
+        uint256,
+        uint256,
+        uint256,
+        address,
+        uint256,
+        bool
+    );
 
-        uint256 c = a * b;
-        require(c / a == b, 'SafeMath: multiplication overflow');
+    function getUserStatus(address _userAddress) external view returns (bool);
 
-        return c;
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers. Reverts on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `/` operator. Note: this function uses a
-     * `revert` opcode (which leaves remaining gas untouched) while Solidity
-     * uses an invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, 'SafeMath: division by zero');
-    }
-
-    /**
-     * @dev Returns the integer division of two unsigned integers. Reverts with custom message on
-     * division by zero. The result is rounded towards zero.
-     *
-     * Counterpart to Solidity's `/` operator. Note: this function uses a
-     * `revert` opcode (which leaves remaining gas untouched) while Solidity
-     * uses an invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function div(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * Reverts when dividing by zero.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, 'SafeMath: modulo by zero');
-    }
-
-    /**
-     * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
-     * Reverts with custom message when dividing by zero.
-     *
-     * Counterpart to Solidity's `%` operator. This function uses a `revert`
-     * opcode (which leaves remaining gas untouched) while Solidity uses an
-     * invalid opcode to revert (consuming all remaining gas).
-     *
-     * Requirements:
-     *
-     * - The divisor cannot be zero.
-     */
-    function mod(
-        uint256 a,
-        uint256 b,
-        string memory errorMessage
-    ) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-
-    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        z = x < y ? x : y;
-    }
-
-    // babylonian method (https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#Babylonian_method)
-    function sqrt(uint256 y) internal pure returns (uint256 z) {
-        if (y > 3) {
-            z = y;
-            uint256 x = y / 2 + 1;
-            while (x < z) {
-                z = x;
-                x = (y / x + x) / 2;
-            }
-        } else if (y != 0) {
-            z = 1;
-        }
-    }
+    function getTeamProfile(uint256 _teamId)
+    external
+    view
+    returns (
+        string memory,
+        string memory,
+        uint256,
+        uint256,
+        bool
+    );
 }
 
 // File: contracts/SmartChefInitializable.sol
 
 contract SmartChefInitializable is Ownable, ReentrancyGuard {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20Metadata;
+
+    // The address of the smart chef factory
+    address public immutable SMART_CHEF_FACTORY;
+
+    // Whether a limit is set for users
+    bool public userLimit;
+
+    // Whether it is initialized
+    bool public isInitialized;
 
     // Accrued token per share
     uint256 public accTokenPerShare;
 
-    // The time when ARX mining starts.
-    uint256 public startTime;
+    // The block number when CAKE mining ends.
+    uint256 public bonusEndBlock;
 
-    // The time of the last pool update
-    uint256 public lastRewardTime;
+    // The block number when CAKE mining starts.
+    uint256 public startBlock;
 
-    // ARX tokens created per sec.
-    uint256 public rewardPerSec;
+    // The block number of the last pool update
+    uint256 public lastRewardBlock;
+
+    // The pool limit (0 if none)
+    uint256 public poolLimitPerUser;
+
+    // Block numbers available for user limit (after start block)
+    uint256 public numberBlocksForUserLimit;
+
+    // Pancake profile
+    IPancakeProfile public immutable pancakeProfile;
+
+    // Pancake Profile is requested
+    bool public pancakeProfileIsRequested;
+
+    // Pancake Profile points threshold
+    uint256 public pancakeProfileThresholdPoints;
+
+    // CAKE tokens created per block.
+    uint256 public rewardPerBlock;
 
     // The precision factor
     uint256 public PRECISION_FACTOR;
@@ -753,11 +649,6 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     // The staked token
     IERC20Metadata public stakedToken;
 
-    // Are rewards currently active? Can users earn the reward token for staking the staked token?
-    bool rewardsActive = false;
-
-    address feeTo = 0xE8FFE751deA181025a9ACf3D6Bde8cdA5380F53F;
-
     // Info of each user that stakes tokens (stakedToken)
     mapping(address => UserInfo) public userInfo;
 
@@ -767,66 +658,88 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     }
 
     event Deposit(address indexed user, uint256 amount);
-    event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
-    event UpdateEmissions(uint256 rewardPerSec);
+    event NewStartAndEndBlocks(uint256 startBlock, uint256 endBlock);
+    event NewRewardPerBlock(uint256 rewardPerBlock);
+    event NewPoolLimit(uint256 poolLimitPerUser);
+    event RewardsStop(uint256 blockNumber);
+    event TokenRecovery(address indexed token, uint256 amount);
+    event Withdraw(address indexed user, uint256 amount);
+    event UpdateProfileAndThresholdPointsRequirement(bool isProfileRequested, uint256 thresholdPoints);
+
+    /**
+     * @notice Constructor
+     * @param _pancakeProfile: Pancake Profile address
+     * @param _pancakeProfileIsRequested: Pancake Profile is requested
+     * @param _pancakeProfileThresholdPoints: Pancake Profile need threshold points
+     */
+    constructor(
+        address _pancakeProfile,
+        bool _pancakeProfileIsRequested,
+        uint256 _pancakeProfileThresholdPoints
+    ) {
+        SMART_CHEF_FACTORY = msg.sender;
+
+        // Call to verify the address is correct
+        IPancakeProfile(_pancakeProfile).getTeamProfile(1);
+        pancakeProfile = IPancakeProfile(_pancakeProfile);
+
+        // if pancakeProfile is requested
+        pancakeProfileIsRequested = _pancakeProfileIsRequested;
+
+        // pancakeProfile threshold points when profile & points are requested
+        pancakeProfileThresholdPoints = _pancakeProfileThresholdPoints;
+    }
 
     /*
      * @notice Initialize the contract
      * @param _stakedToken: staked token address
      * @param _rewardToken: reward token address
-     * @param _rewardPerSec: reward per time (in rewardToken)
-     * @param _startTime: timestamp at which rewards will start
-    */
-    constructor(
+     * @param _rewardPerBlock: reward per block (in rewardToken)
+     * @param _startBlock: start block
+     * @param _bonusEndBlock: end block
+     * @param _poolLimitPerUser: pool limit per user in stakedToken (if any, else 0)
+     * @param _numberBlocksForUserLimit: block numbers available for user limit (after start block)
+     * @param _admin: admin address with ownership
+     */
+    function initialize(
         IERC20Metadata _stakedToken,
         IERC20Metadata _rewardToken,
-        uint256 _rewardPerSec,
-        uint256 _startTime
-    ) {
+        uint256 _rewardPerBlock,
+        uint256 _startBlock,
+        uint256 _bonusEndBlock,
+        uint256 _poolLimitPerUser,
+        uint256 _numberBlocksForUserLimit,
+        address _admin
+    ) external {
+        require(!isInitialized, "Already initialized");
+        require(msg.sender == SMART_CHEF_FACTORY, "Not factory");
+
+        // Make this contract initialized
+        isInitialized = true;
+
         stakedToken = _stakedToken;
         rewardToken = _rewardToken;
-        rewardPerSec = _rewardPerSec;
+        rewardPerBlock = _rewardPerBlock;
+        startBlock = _startBlock;
+        bonusEndBlock = _bonusEndBlock;
+
+        if (_poolLimitPerUser > 0) {
+            userLimit = true;
+            poolLimitPerUser = _poolLimitPerUser;
+            numberBlocksForUserLimit = _numberBlocksForUserLimit;
+        }
 
         uint256 decimalsRewardToken = uint256(rewardToken.decimals());
         require(decimalsRewardToken < 30, "Must be less than 30");
 
         PRECISION_FACTOR = uint256(10**(uint256(30) - decimalsRewardToken));
 
-        // Set the lastRewardTime as the startTime
-        lastRewardTime = _startTime;
-    }
+        // Set the lastRewardBlock as the startBlock
+        lastRewardBlock = startBlock;
 
-    /*
-     * @notice Change the start time of the rewards, this can only be done if rewards have not started. Timestamp provided must also be at current block or later
-     * @param _startTime: The timestamp of when minting of rewards can occur
-    */
-    function setStartTime(uint256 _startTime) public onlyOwner {
-        require(block.timestamp <= startTime, "Operations: Rewards already started");
-        require(_startTime >= block.timestamp, "Operations: Invalid start time");
-        startTime = _startTime;
-        lastRewardTime = _startTime;
-    }
-
-    /*
-     * @notice Update the address that fees are sent to
-     * @param _feeTo: address where fees should be transferred
-    */
-    function setFeeTo(address _feeTo) public onlyOwner {
-        feeTo = _feeTo;
-    }
-
-    /*
-     * @notice Update the rewardsActive boolean variable
-     * @param _rewardsActive: are rewards active or no, true/false
-    */
-    function setRewardsActive(bool _rewardsActive) public onlyOwner {
-        require(block.timestamp >= startTime, "Operations: Rewards have not yet started anyways");
-        require(_rewardsActive != rewardsActive, "Operations: Rewards active is already set to that");
-        if (_rewardsActive == true) {
-            lastRewardTime = block.timestamp;
-        }
-        rewardsActive = _rewardsActive;
+        // Transfer ownership to the admin address who becomes owner of the contract
+        transferOwnership(_admin);
     }
 
     /*
@@ -834,8 +747,29 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @param _amount: amount to withdraw (in rewardToken)
      */
     function deposit(uint256 _amount) external nonReentrant {
-        require(rewardsActive == true, "Operations: Rewards are not currently active");
         UserInfo storage user = userInfo[msg.sender];
+
+        // Checks whether the user has an active profile
+        require(
+            (!pancakeProfileIsRequested && pancakeProfileThresholdPoints == 0) ||
+            pancakeProfile.getUserStatus(msg.sender),
+            "Deposit: Must have an active profile"
+        );
+
+        uint256 numberUserPoints = 0;
+
+        if (pancakeProfileThresholdPoints > 0) {
+            (, numberUserPoints, , , , ) = pancakeProfile.getUserProfile(msg.sender);
+        }
+
+        require(
+            pancakeProfileThresholdPoints == 0 || numberUserPoints >= pancakeProfileThresholdPoints,
+            "Deposit: User has not enough points"
+        );
+
+        userLimit = hasUserLimit();
+
+        require(!userLimit || ((_amount + user.amount) <= poolLimitPerUser), "Deposit: Amount above limit");
 
         _updatePool();
 
@@ -847,11 +781,8 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         }
 
         if (_amount > 0) {
-            stakedToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-            uint256 fee = _amount/100; // 1% fee
-            _amount = _amount-fee;
             user.amount = user.amount + _amount;
-            stakedToken.safeTransfer(feeTo,fee);
+            stakedToken.safeTransferFrom(address(msg.sender), address(this), _amount);
         }
 
         user.rewardDebt = (user.amount * accTokenPerShare) / PRECISION_FACTOR;
@@ -903,15 +834,98 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     }
 
     /*
-     * @notice Update reward per sec
-     * @param _rewardPerSec: the reward per sec
+     * @notice Stop rewards
+     * @dev Only callable by owner. Needs to be for emergency.
      */
-    function setRewardsPerSec(uint256 _rewardPerSec) external onlyOwner {
-        require(_rewardPerSec.mul(100).div(rewardPerSec) >= 90, "Max 10% decrease per transaction.");
-        require(_rewardPerSec.mul(100).div(rewardPerSec) <= 110, "Max 10% increase per transaction.");
-        rewardPerSec = _rewardPerSec;
-        
-        emit UpdateEmissions(_rewardPerSec);
+    function emergencyRewardWithdraw(uint256 _amount) external onlyOwner {
+        rewardToken.safeTransfer(address(msg.sender), _amount);
+    }
+
+    /**
+     * @notice Allows the owner to recover tokens sent to the contract by mistake
+     * @param _token: token address
+     * @dev Callable by owner
+     */
+    function recoverToken(address _token) external onlyOwner {
+        require(_token != address(stakedToken), "Operations: Cannot recover staked token");
+        require(_token != address(rewardToken), "Operations: Cannot recover reward token");
+
+        uint256 balance = IERC20Metadata(_token).balanceOf(address(this));
+        require(balance != 0, "Operations: Cannot recover zero balance");
+
+        IERC20Metadata(_token).safeTransfer(address(msg.sender), balance);
+
+        emit TokenRecovery(_token, balance);
+    }
+
+    /*
+     * @notice Stop rewards
+     * @dev Only callable by owner
+     */
+    function stopReward() external onlyOwner {
+        bonusEndBlock = block.number;
+    }
+
+    /*
+     * @notice Update pool limit per user
+     * @dev Only callable by owner.
+     * @param _userLimit: whether the limit remains forced
+     * @param _poolLimitPerUser: new pool limit per user
+     */
+    function updatePoolLimitPerUser(bool _userLimit, uint256 _poolLimitPerUser) external onlyOwner {
+        require(userLimit, "Must be set");
+        if (_userLimit) {
+            require(_poolLimitPerUser > poolLimitPerUser, "New limit must be higher");
+            poolLimitPerUser = _poolLimitPerUser;
+        } else {
+            userLimit = _userLimit;
+            poolLimitPerUser = 0;
+        }
+        emit NewPoolLimit(poolLimitPerUser);
+    }
+
+    /*
+     * @notice Update reward per block
+     * @dev Only callable by owner.
+     * @param _rewardPerBlock: the reward per block
+     */
+    function updateRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+        require(block.number < startBlock, "Pool has started");
+        rewardPerBlock = _rewardPerBlock;
+        emit NewRewardPerBlock(_rewardPerBlock);
+    }
+
+    /**
+     * @notice It allows the admin to update start and end blocks
+     * @dev This function is only callable by owner.
+     * @param _startBlock: the new start block
+     * @param _bonusEndBlock: the new end block
+     */
+    function updateStartAndEndBlocks(uint256 _startBlock, uint256 _bonusEndBlock) external onlyOwner {
+        require(block.number < startBlock, "Pool has started");
+        require(_startBlock < _bonusEndBlock, "New startBlock must be lower than new endBlock");
+        require(block.number < _startBlock, "New startBlock must be higher than current block");
+
+        startBlock = _startBlock;
+        bonusEndBlock = _bonusEndBlock;
+
+        // Set the lastRewardBlock as the startBlock
+        lastRewardBlock = startBlock;
+
+        emit NewStartAndEndBlocks(_startBlock, _bonusEndBlock);
+    }
+
+    /**
+     * @notice It allows the admin to update profile and thresholdPoints' requirement.
+     * @dev This function is only callable by owner.
+     * @param _isRequested: the profile is requested
+     * @param _thresholdPoints: the threshold points
+     */
+    function updateProfileAndThresholdPointsRequirement(bool _isRequested, uint256 _thresholdPoints) external onlyOwner {
+        require(_thresholdPoints >= 0, "Threshold points need to exceed 0");
+        pancakeProfileIsRequested = _isRequested;
+        pancakeProfileThresholdPoints = _thresholdPoints;
+        emit UpdateProfileAndThresholdPointsRequirement(_isRequested, _thresholdPoints);
     }
 
     /*
@@ -922,10 +936,10 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     function pendingReward(address _user) external view returns (uint256) {
         UserInfo storage user = userInfo[_user];
         uint256 stakedTokenSupply = stakedToken.balanceOf(address(this));
-        if (block.timestamp > lastRewardTime && stakedTokenSupply != 0) {
-            uint256 multiplier = _getMultiplier(lastRewardTime, block.timestamp);
-            uint256 ARXReward = multiplier * rewardPerSec;
-            uint256 adjustedTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
+        if (block.number > lastRewardBlock && stakedTokenSupply != 0) {
+            uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+            uint256 cakeReward = multiplier * rewardPerBlock;
+            uint256 adjustedTokenPerShare = accTokenPerShare + (cakeReward * PRECISION_FACTOR) / stakedTokenSupply;
             return (user.amount * adjustedTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
         } else {
             return (user.amount * accTokenPerShare) / PRECISION_FACTOR - user.rewardDebt;
@@ -936,29 +950,115 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @notice Update reward variables of the given pool to be up-to-date.
      */
     function _updatePool() internal {
-        if (block.timestamp <= lastRewardTime) {
+        if (block.number <= lastRewardBlock) {
             return;
         }
 
         uint256 stakedTokenSupply = stakedToken.balanceOf(address(this));
 
         if (stakedTokenSupply == 0) {
-            lastRewardTime = block.timestamp;
+            lastRewardBlock = block.number;
             return;
         }
 
-        uint256 multiplier = _getMultiplier(lastRewardTime, block.timestamp);
-        uint256 ARXReward = multiplier * rewardPerSec;
-        accTokenPerShare = accTokenPerShare + (ARXReward * PRECISION_FACTOR) / stakedTokenSupply;
-        lastRewardTime = block.timestamp;
+        uint256 multiplier = _getMultiplier(lastRewardBlock, block.number);
+        uint256 cakeReward = multiplier * rewardPerBlock;
+        accTokenPerShare = accTokenPerShare + (cakeReward * PRECISION_FACTOR) / stakedTokenSupply;
+        lastRewardBlock = block.number;
     }
 
     /*
-     * @notice Return reward multiplier over the given _from to _to .
-     * @param _from: time to start
-     * @param _to: time to finish
+     * @notice Return reward multiplier over the given _from to _to block.
+     * @param _from: block to start
+     * @param _to: block to finish
      */
-    function _getMultiplier(uint256 _from, uint256 _to) internal pure returns (uint256) {
-        return _to.sub(_from).mul(1);
+    function _getMultiplier(uint256 _from, uint256 _to) internal view returns (uint256) {
+        if (_to <= bonusEndBlock) {
+            return _to - _from;
+        } else if (_from >= bonusEndBlock) {
+            return 0;
+        } else {
+            return bonusEndBlock - _from;
+        }
+    }
+
+    /*
+     * @notice Return user limit is set or zero.
+     */
+    function hasUserLimit() public view returns (bool) {
+        if (!userLimit || (block.number >= (startBlock + numberBlocksForUserLimit))) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+// File: contracts/SmartChefFactory.sol
+
+contract SmartChefFactory is Ownable {
+    event NewSmartChefContract(address indexed smartChef);
+
+    constructor() {
+        //
+    }
+
+    /*
+     * @notice Deploy the pool
+     * @param _stakedToken: staked token address
+     * @param _rewardToken: reward token address
+     * @param _rewardPerBlock: reward per block (in rewardToken)
+     * @param _startBlock: start block
+     * @param _endBlock: end block
+     * @param _poolLimitPerUser: pool limit per user in stakedToken (if any, else 0)
+     * @param _numberBlocksForUserLimit: block numbers available for user limit (after start block)
+     * @param _pancakeProfile: Pancake Profile address
+     * @param _pancakeProfileIsRequested: Pancake Profile is requested
+     * @param _pancakeProfileThresholdPoints: Pancake Profile need threshold points
+     * @param _admin: admin address with ownership
+     * @return address of new smart chef contract
+     */
+    function deployPool(
+        IERC20Metadata _stakedToken,
+        IERC20Metadata _rewardToken,
+        uint256 _rewardPerBlock,
+        uint256 _startBlock,
+        uint256 _bonusEndBlock,
+        uint256 _poolLimitPerUser,
+        uint256 _numberBlocksForUserLimit,
+        address _pancakeProfile,
+        bool _pancakeProfileIsRequested,
+        uint256 _pancakeProfileThresholdPoints,
+        address _admin
+    ) external onlyOwner {
+        require(_stakedToken.totalSupply() >= 0);
+        require(_rewardToken.totalSupply() >= 0);
+        require(_stakedToken != _rewardToken, "Tokens must be be different");
+
+        bytes memory bytecode = type(SmartChefInitializable).creationCode;
+        // pass constructor argument
+        bytecode = abi.encodePacked(
+            bytecode,
+            abi.encode(_pancakeProfile, _pancakeProfileIsRequested, _pancakeProfileThresholdPoints)
+        );
+        bytes32 salt = keccak256(abi.encodePacked(_stakedToken, _rewardToken, _startBlock));
+        address smartChefAddress;
+
+        assembly {
+            smartChefAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
+        }
+
+        SmartChefInitializable(smartChefAddress).initialize(
+            _stakedToken,
+            _rewardToken,
+            _rewardPerBlock,
+            _startBlock,
+            _bonusEndBlock,
+            _poolLimitPerUser,
+            _numberBlocksForUserLimit,
+            _admin
+        );
+
+        emit NewSmartChefContract(smartChefAddress);
     }
 }

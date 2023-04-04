@@ -635,7 +635,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             path[0], msg.sender, ArbiDexLibrary.pairFor(factory, path[0], path[1]), amounts[0]
         );
         _swap(amounts, path, to);
-        IArbitrage(arbitrage).tryArbitrage();
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapTokensForExactTokens(
         uint amountOut,
@@ -668,7 +670,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         IWETH(WETH).deposit{value: amounts[0]}();
         assert(IWETH(WETH).transfer(ArbiDexLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
-        IArbitrage(arbitrage).tryArbitrage();
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
         external
@@ -686,7 +690,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         _swap(amounts, path, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
-        IArbitrage(arbitrage).tryArbitrage();
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
         external
@@ -704,7 +710,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         _swap(amounts, path, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
-        IArbitrage(arbitrage).tryArbitrage();
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
         external
@@ -722,7 +730,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         _swap(amounts, path, to);
         // refund dust eth, if any
         if (msg.value > amounts[0]) TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
-        IArbitrage(arbitrage).tryArbitrage();
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
 
     // **** SWAP (supporting fee-on-transfer tokens) ****
@@ -743,6 +753,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
             address to = i < path.length - 2 ? ArbiDexLibrary.pairFor(factory, output, path[i + 2]) : _to;
             pair.swap(amount0Out, amount1Out, to, new bytes(0));
+            if (msg.sender != arbitrage) {
+                IArbitrage(arbitrage).tryArbitrage();
+            }
         }
     }
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
@@ -761,6 +774,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,
             'ArbiDexRouter: INSUFFICIENT_OUTPUT_AMOUNT'
         );
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapExactETHForTokensSupportingFeeOnTransferTokens(
         uint amountOutMin,
@@ -784,6 +800,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,
             'ArbiDexRouter: INSUFFICIENT_OUTPUT_AMOUNT'
         );
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
         uint amountIn,
@@ -806,6 +825,9 @@ contract ArbiDexRouter is IArbiDexRouter02 {
         require(amountOut >= amountOutMin, 'ArbiDexRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         IWETH(WETH).withdraw(amountOut);
         TransferHelper.safeTransferETH(to, amountOut);
+        if (msg.sender != arbitrage) {
+            IArbitrage(arbitrage).tryArbitrage();
+        }
     }
 
     // **** LIBRARY FUNCTIONS ****

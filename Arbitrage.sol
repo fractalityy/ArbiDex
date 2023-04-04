@@ -24,18 +24,44 @@ interface IArbDexPair {
 }
 
 contract Arbitrage {
+    // Address of the treasury, where tokens are sent once arbitrage has been completed
     address public treasury;
+
+    // Address of the router to complete swap calls, and obtain amountOut given a path
     address public router;
+
+    // Current owner of the contract (admin)
     address public owner;
+
+    // Address of the USDC token
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
-    uint256 multiplier = 9940; // 99.40%
-    uint256 public profit = 0; // Amount of profit (in USDC) from doing an arbitrage
-    uint256 public requiredTokens = 0; // Amount of tokens (minimum) required for the most profit
-    uint256 public minimumTokensOut = 0;
+
+    // Multiplier used when calculating if arbitrage is profitable (default is 9940 which is 99.40% returned)
+    uint256 multiplier = 9940;
+    
+    // Profit variable utilized in looping to store the most profit receivable from doing arbitrage. The value is in USDC.
+    uint256 profit;
+
+    // The required amount of input tokens, in this case USDC, that is utilized for arbitrage
+    uint256 requiredTokens;
+
+    // The minimum amount of tokens out to complete the arbitrage swap
+    uint256 minimumTokensOut;
+
+    // The current iteration of computeProfit()
+    uint256 computeProfitCalls = 0;
+
+    // The limit of how many times computeProfit() can be called, to help save on gas or allow for more profitable arbitrage opportunities
+    uint256 public computeProfitCallsLimit = 0;
+
+    // Current token path we are utilizing during arbitrage
     address[] tokenPath; // The path of tokens that will be utilized for arbitrage
-    mapping(address => bool) approvedTokens; // List of all the tokens that have been approved (token approval for transfers).
+
+    // The pairs that we are utilizing or looking for an opportunity to arbitrage
     address[] arbPairs;
-    mapping(address => address[2]) arbTokens; // pair, and then tokens associated that are up for arbitrage.
+
+    // The two tokens that make up the LP pairs
+    mapping(address => address[2]) arbTokens;
 
     constructor(
         address _router,
@@ -81,9 +107,8 @@ contract Arbitrage {
         emit TreasuryUpdated(_treasury);
     }
 
-    function generateApproval(address _token) internal {
+    function generateApproval(address _token) public {
         // Used to approve all the tokens our platform has for transfer by the router from this contract
-        approvedTokens[_token] = true;
         IERC20(_token).approve(router, type(uint256).max);
     }
 
@@ -93,15 +118,36 @@ contract Arbitrage {
         IERC20(_token).transfer(treasury, IERC20(_token).balanceOf(address(this)));
     }
 
-    function updateList(address _pairAddress) external onlyOwner {
+    function addPair(address _pairAddress) external onlyOwner {
         arbPairs.push(_pairAddress);
         arbTokens[_pairAddress] = [IArbDexPair(_pairAddress).token0(), IArbDexPair(_pairAddress).token1()];
     }
 
+    function setProfitCallsLimit(uint256 _amount) external onlyOwner {
+        computeProfitCallsLimit = _amount;
+    }
+
+    function removePair(address _pairAddress) external onlyOwner {
+        for (uint256 i = 0; i < arbPairs.length; i++) {
+            if (arbPairs[i] == _pairAddress) {
+                delete arbPairs[i];
+            }
+        }
+        delete arbTokens[_pairAddress];
+    }
+
     function computeProfit(uint256 amountIn) internal {
+        // Check to see if we've already reached the maximum profit calls allowed
+        if (computeProfitCalls >= computeProfitCallsLimit) {return;}    
+
+        // Increment the computeProfitCalls state variable to keep track of the current iteration
+        computeProfitCalls += 1;
+
         // Going to add 10 USDC (saves gas instead of using a smaller number) to see if we can make a higher profit (requires us to recompute output of the path via Router)
         uint256 newAmountIn = amountIn + (10 * (10 ** 6));
+
         if (newAmountIn > IERC20(USDC).balanceOf(treasury)) {return;}
+
         uint256[] memory newAmounts =  IArbiDexRouter(router).getAmountsOut(newAmountIn, tokenPath);
         // Expected amount out has to be recomputed since we called the Router again, remembering that 0.6% of our starting tokens come back to us.
         uint256 newExpectedAmount = (newAmountIn * multiplier)/10000;
@@ -122,12 +168,6 @@ contract Arbitrage {
         // Returns the amount of profit, or the amount of USDC we get out subtracted by the amount we started by (profit).
         // We take into account the fact that 0.2% of every swap goes back to the multisig, and remember to account for those swap fees during this calculation.
 
-        if (!approvedTokens[tokenA]) {
-            generateApproval(tokenA);
-        }
-        if (!approvedTokens[tokenB]) {
-            generateApproval(tokenB);
-        }
         if (tokenA == USDC || tokenB == USDC) {return;}
 
         // Amount we start with multiplied by decimals 6 (USDC)
@@ -137,6 +177,7 @@ contract Arbitrage {
         profit = 0;
         requiredTokens = 0;
         minimumTokensOut = 0;
+        computeProfitCalls = 0;
 
         address[] memory path1 = new address[](4);
         address[] memory path2 = new address[](4);

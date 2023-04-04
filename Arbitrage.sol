@@ -28,13 +28,13 @@ contract Arbitrage {
     address public treasury;
 
     // Address of the router to complete swap calls, and obtain amountOut given a path
-    address public router;
+    address immutable public router;
 
     // Current owner of the contract (admin)
     address public owner;
 
     // Address of the USDC token
-    address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+    address immutable USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
     // Multiplier used when calculating if arbitrage is profitable (default is 9940 which is 99.40% returned)
     uint256 multiplier = 9940;
@@ -55,13 +55,18 @@ contract Arbitrage {
     uint256 public computeProfitCallsLimit = 0;
 
     // Current token path we are utilizing during arbitrage
-    address[] tokenPath; // The path of tokens that will be utilized for arbitrage
+    address[] tokenPath;
+
+    struct Pair {
+        address pairAddress;
+        address[2] tokens;
+    }
 
     // The pairs that we are utilizing or looking for an opportunity to arbitrage
-    address[] arbPairs;
+    Pair[] public arbPairs;
 
-    // The two tokens that make up the LP pairs
-    mapping(address => address[2]) arbTokens;
+    // Used to store the index of a pair in the arbPairs array
+    mapping(address => uint256) public arbPairIndices;
 
     constructor(
         address _router,
@@ -74,8 +79,6 @@ contract Arbitrage {
     }
 
     event NormalArbitrage(uint256, uint256);
-    event NoArbitrage();
-    event LowBalanceArbitrage(uint256, uint256);
     event OwnershipTransferred(address);
     event TreasuryUpdated(address);
     event SetMultiplier(uint256);
@@ -114,13 +117,12 @@ contract Arbitrage {
 
     function recoverToken(address _token) external onlyOwner {
         require(_token != address(0), "Cannot be zero address");
-        require(IERC20(_token).balanceOf(address(this)) > 0, "Nothing to transfer");
         IERC20(_token).transfer(treasury, IERC20(_token).balanceOf(address(this)));
     }
 
     function addPair(address _pairAddress) external onlyOwner {
-        arbPairs.push(_pairAddress);
-        arbTokens[_pairAddress] = [IArbDexPair(_pairAddress).token0(), IArbDexPair(_pairAddress).token1()];
+        arbPairs.push(Pair(_pairAddress, [IArbDexPair(_pairAddress).token0(), IArbDexPair(_pairAddress).token1()]));
+        arbPairIndices[_pairAddress] = arbPairs.length - 1;
     }
 
     function setProfitCallsLimit(uint256 _amount) external onlyOwner {
@@ -128,12 +130,11 @@ contract Arbitrage {
     }
 
     function removePair(address _pairAddress) external onlyOwner {
-        for (uint256 i = 0; i < arbPairs.length; i++) {
-            if (arbPairs[i] == _pairAddress) {
-                delete arbPairs[i];
-            }
-        }
-        delete arbTokens[_pairAddress];
+        uint256 index = arbPairIndices[_pairAddress];
+        arbPairs[index] = arbPairs[arbPairs.length - 1];
+        arbPairIndices[arbPairs[arbPairs.length - 1].pairAddress] = index;
+        arbPairs.pop();
+        delete arbPairIndices[_pairAddress];
     }
 
     function computeProfit(uint256 amountIn) internal {
@@ -157,9 +158,6 @@ contract Arbitrage {
             minimumTokensOut = newAmounts[newAmounts.length-1];
             profit = newAmounts[newAmounts.length-1] - newExpectedAmount;
             requiredTokens = newAmountIn;
-            // Delete these variables and arrays that way we save on gas
-            delete newExpectedAmount;
-            delete newAmounts;
             computeProfit(newAmountIn);
         }
     }
@@ -192,54 +190,32 @@ contract Arbitrage {
 
         if (amounts1[amounts1.length-1] > expectedAmount && amounts1[amounts1.length-1] > amounts2[amounts2.length-1]) {
             // Profitable on first path, compute the precise amount of tokens we can use to maximize profits
-            delete amounts2;
 
             tokenPath = path1;
             minimumTokensOut = amounts1[amounts1.length-1];
             profit = amounts1[amounts1.length-1] - expectedAmount;
-
-            // We don't need the expectedAmount or amounts1 variable anymore, so let's delete it and save gas
-            delete expectedAmount;
-            delete amounts1;
-
-            // We no longer need the path1 or path2 variables, lets delete them to save gas
-            delete path1;
-            delete path2;
             
             computeProfit(amountIn);
         } else if (amounts2[amounts2.length-1] > expectedAmount && amounts2[amounts2.length-1] > amounts1[amounts1.length-1]) {
             // Profitable on second path, compute the precise amount of tokens we can use to maximize profits
-            delete amounts1;
 
             tokenPath = path2;
             minimumTokensOut = amounts2[amounts2.length-1];
             profit = amounts2[amounts2.length-1] - expectedAmount;
-
-            // We don't need the expectedAmount or amounts2 variable anymore, so let's delete it and save gas
-            delete expectedAmount;
-            delete amounts2;
-
-            // We no longer need the path1 or path2 variables, lets delete them to save gas
-            delete path1;
-            delete path2;
             
             computeProfit(amountIn);
         }
 
-        if (profit > 0) {
-            // If the required tokens to do arbitrage is less than or equal to how many USDC we have, let's do the swap (as long as their is some profit to be made)
+        require(profit > 0, "Not profitable");
 
-            IERC20(USDC).transferFrom(treasury, address(this), requiredTokens);
-            IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, block.timestamp);
-            emit NormalArbitrage(requiredTokens, minimumTokensOut);
-        } else {
-            emit NoArbitrage();
-        }
+        IERC20(USDC).transferFrom(treasury, address(this), requiredTokens);
+        IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, block.timestamp);
+        emit NormalArbitrage(requiredTokens, minimumTokensOut);
     }
 
     function tryArbitrage() external {
         for (uint256 i = 0; i < arbPairs.length; i++) {
-            conductArbitrage(arbTokens[arbPairs[i]][0], arbTokens[arbPairs[i]][1]);
+            conductArbitrage(arbPairs[i].tokens[0], arbPairs[i].tokens[1]);
         }
     }
 }

@@ -28,7 +28,7 @@ contract Arbitrage {
     address public router;
     address public owner;
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
-    uint256 multiplier = 9950; // 99.40%
+    uint256 multiplier = 9940; // 99.40%
     uint256 public profit = 0; // Amount of profit (in USDC) from doing an arbitrage
     uint256 public requiredTokens = 0; // Amount of tokens (minimum) required for the most profit
     uint256 public minimumTokensOut = 0;
@@ -83,7 +83,7 @@ contract Arbitrage {
     function generateApproval(address _token) internal {
         // Used to approve all the tokens our platform has for transfer by the router from this contract
         approvedTokens[_token] = true;
-        IERC20(_token).approve(router, 1000000000000000000000000);
+        IERC20(_token).approve(router, type(uint256).max);
     }
 
     function recoverToken(address _token) external onlyOwner {
@@ -98,7 +98,7 @@ contract Arbitrage {
     }
 
     function computeProfit(uint256 amountIn) internal {
-        // Going to add 1 USDC to see if we can make a higher profit (requires us to recompute output of the path via Router)
+        // Going to add 10 USDC (saves gas instead of using a smaller number) to see if we can make a higher profit (requires us to recompute output of the path via Router)
         uint256 newAmountIn = amountIn + (10 * (10 ** 6));
         if (newAmountIn > IERC20(USDC).balanceOf(treasury)) {return;}
         uint256[] memory newAmounts =  IArbiDexRouter(router).getAmountsOut(newAmountIn, tokenPath);
@@ -145,12 +145,15 @@ contract Arbitrage {
         uint256[] memory amounts1 = IArbiDexRouter(router).getAmountsOut(amountIn, path1);
         uint256[] memory amounts2 = IArbiDexRouter(router).getAmountsOut(amountIn, path2);
         uint256 expectedAmount = (amountIn * multiplier)/10000;
+        
+        requiredTokens = amountIn;
 
         if (amounts1[amounts1.length-1] > expectedAmount && amounts1[amounts1.length-1] > amounts2[amounts2.length-1]) {
             // Profitable on first path, compute the precise amount of tokens we can use to maximize profits
             delete amounts2;
 
             tokenPath = path1;
+            minimumTokensOut = amounts1[amounts1.length-1];
             profit = amounts1[amounts1.length-1] - expectedAmount;
 
             // We don't need the expectedAmount or amounts1 variable anymore, so let's delete it and save gas
@@ -167,6 +170,7 @@ contract Arbitrage {
             delete amounts1;
 
             tokenPath = path2;
+            minimumTokensOut = amounts2[amounts2.length-1];
             profit = amounts2[amounts2.length-1] - expectedAmount;
 
             // We don't need the expectedAmount or amounts2 variable anymore, so let's delete it and save gas

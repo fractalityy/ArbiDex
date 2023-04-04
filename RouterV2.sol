@@ -753,9 +753,6 @@ contract ArbiDexRouter is IArbiDexRouter02 {
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOutput) : (amountOutput, uint(0));
             address to = i < path.length - 2 ? ArbiDexLibrary.pairFor(factory, output, path[i + 2]) : _to;
             pair.swap(amount0Out, amount1Out, to, new bytes(0));
-            if (msg.sender != arbitrage) {
-                IArbitrage(arbitrage).tryArbitrage();
-            }
         }
     }
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(

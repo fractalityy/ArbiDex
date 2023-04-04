@@ -61,7 +61,8 @@ contract Arbitrage {
 
     function setMultiplier(uint256 _multiplier) external onlyOwner {
         require(multiplier != _multiplier, "Multiplier already set to that");
-        require(_multiplier >= 0, "Multiplier cannot be zero");
+        require(_multiplier >= 9900, "Multiplier cannot be zero");
+        require(_multiplier <= 10000, "Multiplier too high");
         multiplier = _multiplier;
         emit SetMultiplier(_multiplier);
     }
@@ -188,7 +189,7 @@ contract Arbitrage {
             // If the required tokens to do arbitrage is less than or equal to how many USDC we have, let's do the swap (as long as their is some profit to be made)
 
             IERC20(USDC).transferFrom(treasury, address(this), requiredTokens);
-            IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, (block.timestamp + 120));
+            IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, block.timestamp);
             emit NormalArbitrage(requiredTokens, minimumTokensOut);
         } else {
             emit NoArbitrage();

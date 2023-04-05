@@ -575,9 +575,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     // The address of the USDC token
     address immutable USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
-    // The fee associated with depositing into the Auto Compounder
-    uint256 public depositFee = 100;
-
     // The performance fee associated whenever the farm/pool is Auto Compounded
     uint256 public performanceFee = 450;
 
@@ -624,7 +621,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     event TokenRecovery(address indexed token, uint256 amount);
     event NewMinimumHarvest(uint256 amount);
     event NewPerformanceFee(uint256 amount);
-    event NewDepositFee(uint256 amount);
     event TreasuryAddressChanged(address treasury);
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
@@ -680,13 +676,8 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         harvest();
 
         IERC20Metadata(stakedToken).safeTransferFrom(address(msg.sender), address(this), _amount);
-        uint256 feeAmount = (_amount * depositFee)/10000;
-        _amount -= feeAmount;
         user.amount += _amount;
         totalSupply += _amount;
-
-        IERC20Metadata(stakedToken).safeTransfer(treasury, feeAmount);
-
         ISmartChefInitializable(staker).deposit(_amount);
 
         emit Deposit(msg.sender, _amount);
@@ -774,17 +765,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         require(_treasury != address(0), "Address cannot be null");
         treasury = _treasury;
         emit TreasuryAddressChanged(_treasury);
-    }
-
-    /*
-     * @notce Update the deposit fee
-     * @param _amount: New amount for the deposit fee
-    */
-    function setDepositFee(uint256 _amount) external onlyOwner {
-        require(_amount >= 10, "Operations: Invalid deposit fee amount");
-        require(_amount <= 500, "Operations: Invalid deposit fee amount");
-        depositFee = _amount;
-        emit NewDepositFee(_amount);
     }
 
     /*

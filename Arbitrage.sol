@@ -62,11 +62,16 @@ contract Arbitrage {
         address[2] tokens;
     }
 
+    struct Indice {
+        uint256 index;
+        bool exists;
+    }
+
     // The pairs that we are utilizing or looking for an opportunity to arbitrage
     Pair[] public arbPairs;
 
     // Used to store the index of a pair in the arbPairs array
-    mapping(address => uint256) public arbPairIndices;
+    mapping(address => Indice) public arbPairIndices;
 
     constructor(
         address _router,
@@ -122,7 +127,9 @@ contract Arbitrage {
 
     function addPair(address _pairAddress) external onlyOwner {
         arbPairs.push(Pair(_pairAddress, [IArbDexPair(_pairAddress).token0(), IArbDexPair(_pairAddress).token1()]));
-        arbPairIndices[_pairAddress] = arbPairs.length - 1;
+    
+        arbPairIndices[_pairAddress].index = arbPairs.length - 1;
+        arbPairIndices[_pairAddress].exists = true;
     }
 
     function setProfitCallsLimit(uint256 _amount) external onlyOwner {
@@ -130,9 +137,10 @@ contract Arbitrage {
     }
 
     function removePair(address _pairAddress) external onlyOwner {
-        uint256 index = arbPairIndices[_pairAddress];
+        require(arbPairIndices[_pairAddress].exists == true, "Operations: Invalid pair address provided");
+        uint256 index = arbPairIndices[_pairAddress].index;
         arbPairs[index] = arbPairs[arbPairs.length - 1];
-        arbPairIndices[arbPairs[arbPairs.length - 1].pairAddress] = index;
+        arbPairIndices[arbPairs[arbPairs.length - 1].pairAddress].index = index;
         arbPairs.pop();
         delete arbPairIndices[_pairAddress];
     }
@@ -149,7 +157,7 @@ contract Arbitrage {
 
         if (newAmountIn > IERC20(USDC).balanceOf(treasury)) {return;}
 
-        uint256[] memory newAmounts =  IArbiDexRouter(router).getAmountsOut(newAmountIn, tokenPath);
+        uint256[] memory newAmounts = IArbiDexRouter(router).getAmountsOut(newAmountIn, tokenPath);
         // Expected amount out has to be recomputed since we called the Router again, remembering that 0.6% of our starting tokens come back to us.
         uint256 newExpectedAmount = (newAmountIn * multiplier)/10000;
 
@@ -206,11 +214,11 @@ contract Arbitrage {
             computeProfit(amountIn);
         }
 
-        require(profit > 0, "Not profitable");
-
-        IERC20(USDC).transferFrom(treasury, address(this), requiredTokens);
-        IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, block.timestamp);
-        emit NormalArbitrage(requiredTokens, minimumTokensOut);
+        if (profit > 0) {
+            IERC20(USDC).transferFrom(treasury, address(this), requiredTokens);
+            IArbiDexRouter(router).swapExactTokensForTokens(requiredTokens, minimumTokensOut, tokenPath, treasury, block.timestamp);
+            emit NormalArbitrage(requiredTokens, minimumTokensOut);
+        }
     }
 
     function tryArbitrage() external {

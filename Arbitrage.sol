@@ -178,6 +178,7 @@ contract Arbitrage {
 
         // Amount we start with multiplied by decimals 6 (USDC)
         uint256 amountIn = 10 * (10 ** 6);
+         if (amountIn > IERC20(USDC).balanceOf(treasury)) {return;}
 
         // Since we starting a new check, lets reset all of our variables
         profit = 0;
@@ -196,7 +197,7 @@ contract Arbitrage {
         
         requiredTokens = amountIn;
 
-        if (amounts1[amounts1.length-1] > expectedAmount && amounts1[amounts1.length-1] > amounts2[amounts2.length-1]) {
+        if (amounts1[amounts1.length-1] > expectedAmount && amounts1[amounts1.length-1] >= amounts2[amounts2.length-1]) {
             // Profitable on first path, compute the precise amount of tokens we can use to maximize profits
 
             tokenPath = path1;

@@ -623,6 +623,9 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     event Deposit(address indexed user, uint256 amount);
     event TokenRecovery(address indexed token, uint256 amount);
     event NewMinimumHarvest(uint256 amount);
+    event NewPerformanceFee(uint256 amount);
+    event NewDepositFee(uint256 amount);
+    event TreasuryAddressChanged(address treasury);
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
 
@@ -751,6 +754,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         require(_token != address(stakedToken), "Operations: Cannot be staked token");
         require(_token != address(rewardToken), "Operations: Cannot be reward token");
         IERC20(_token).transfer(treasury, _amount);
+        emit TokenRecovery(_token, _amount);
     }
 
     /*
@@ -769,6 +773,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0), "Address cannot be null");
         treasury = _treasury;
+        emit TreasuryAddressChanged(_treasury);
     }
 
     /*
@@ -779,6 +784,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         require(_amount >= 10, "Operations: Invalid deposit fee amount");
         require(_amount <= 500, "Operations: Invalid deposit fee amount");
         depositFee = _amount;
+        emit NewDepositFee(_amount);
     }
 
     /*
@@ -789,5 +795,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         require(_amount >= 200, "Operations: Invalid performance fee amount");
         require(_amount <= 500, "Operations: Invalid performance fee amount");
         performanceFee = _amount;
+        emit NewPerformanceFee(_amount);
     }
 }

@@ -713,8 +713,8 @@ contract AutoCompound is Ownable, ReentrancyGuard {
 
         harvest();
 
-        uint256 adjustedAmount = (user.amount * getTotalSupply()) / totalSupply; 
-        totalSupply -= user.amount;
+        uint256 adjustedAmount = (_amount * getTotalSupply()) / totalSupply; 
+        totalSupply -= _amount;
         user.amount -= _amount;
         ISmartChefInitializable(staker).withdraw(adjustedAmount);
         IERC20Metadata(stakedToken).safeTransfer(address(msg.sender), adjustedAmount);

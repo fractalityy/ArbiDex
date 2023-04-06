@@ -575,6 +575,9 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     // The address of the USDC token
     address immutable USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
+    // The fee associated with depositing into the Auto Compounder
+    uint256 public depositFee = 100;
+
     // The performance fee associated whenever the farm/pool is Auto Compounded
     uint256 public performanceFee = 450;
 
@@ -621,6 +624,9 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     event TokenRecovery(address indexed token, uint256 amount);
     event NewMinimumHarvest(uint256 amount);
     event NewPerformanceFee(uint256 amount);
+    event NewDepositFee(uint256 amount);
+    event DepositFeeCharged(uint256 amount);
+    event PerformanceFeeCharged(uint256 amount);
     event TreasuryAddressChanged(address treasury);
     event Withdraw(address indexed user, uint256 amount);
     event EmergencyWithdraw(address indexed user, uint256 amount);
@@ -634,7 +640,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         uint256 harvested = IERC20Metadata(rewardToken).balanceOf(address(this));
 
         // Check to see if we have the minimum amount of reward tokens harvested
-        if (harvested < minimumHarvest) {return;}
+        if (harvested < minimumHarvest || harvested == 0 || totalSupply == 0) {return;}
 
         // Check allowance and see if we need to update
         if (harvested > IERC20Metadata(rewardToken).allowance(address(this), router)) {
@@ -642,9 +648,12 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         }
 
         // Calculate the performance fee for this harvest, and send it to the treasury
-        uint256 feeAmount = (harvested * performanceFee)/10000;
-        harvested = harvested - feeAmount;
-        IERC20Metadata(rewardToken).safeTransfer(treasury, feeAmount);
+        if (performanceFee > 0) {
+            uint256 feeAmount = (harvested * performanceFee)/10000;
+            harvested -= feeAmount;
+            IERC20Metadata(rewardToken).safeTransfer(treasury, feeAmount);
+            emit PerformanceFeeCharged(feeAmount);
+        }
 
         // Lets' compute the amount of tokens we will get out for swapping from reward to staked token
         uint256[] memory amounts = IArbiDexRouter(router).getAmountsOut(harvested, path);
@@ -666,7 +675,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      */
     function deposit(uint256 _amount) external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(_amount > 0, "Amount to deposit must be greater than zero");
+        require(_amount > 0, "Deposit: Amount to deposit must be greater than zero");
 
         // Check allowance and see if we need to update
         if (_amount > IERC20Metadata(stakedToken).allowance(address(this), staker)) {
@@ -676,8 +685,18 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         harvest();
 
         IERC20Metadata(stakedToken).safeTransferFrom(address(msg.sender), address(this), _amount);
+        
+        if (depositFee > 0) {
+            uint256 feeAmount = (_amount * depositFee)/10000;
+            _amount -= feeAmount;
+            IERC20Metadata(stakedToken).safeTransfer(treasury, feeAmount);
+            emit DepositFeeCharged(feeAmount);
+        }
+        
         user.amount += _amount;
         totalSupply += _amount;
+
+
         ISmartChefInitializable(staker).deposit(_amount);
 
         emit Deposit(msg.sender, _amount);
@@ -689,8 +708,8 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      */
     function withdraw(uint256 _amount) external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(user.amount - _amount >= 0, "Amount to withdraw too high");
-        require(_amount > 0, "Amount to withdraw cannot be zero");
+        require(user.amount - _amount >= 0, "Withdraw: Amount to withdraw too high");
+        require(_amount > 0, "Withdraw: Amount to withdraw cannot be zero");
 
         harvest();
 
@@ -708,7 +727,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      */
     function emergencyWithdraw() external {
         UserInfo storage user = userInfo[msg.sender];
-        require(user.amount > 0, "Nothing to withdraw");
+        require(user.amount > 0, "Withdraw: Nothing to withdraw");
 
         uint256 adjustedAmount = (user.amount * getTotalSupply()) / totalSupply; 
         totalSupply -= user.amount;
@@ -762,9 +781,19 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @param _treasury: New address that should receive treasury fees
     */
     function setTreasury(address _treasury) external onlyOwner {
-        require(_treasury != address(0), "Address cannot be null");
+        require(_treasury != address(0), "Operations: Address cannot be null");
         treasury = _treasury;
         emit TreasuryAddressChanged(_treasury);
+    }
+
+    /*
+     * @notce Update the deposit fee
+     * @param _amount: New amount for the deposit fee
+    */
+    function setDepositFee(uint256 _amount) external onlyOwner {
+        require(_amount <= 250, "Operations: Invalid deposit fee amount");
+        depositFee = _amount;
+        emit NewDepositFee(_amount);
     }
 
     /*
@@ -772,7 +801,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @param _amount: New amount for the performance fee
     */
     function setPerformanceFee(uint256 _amount) external onlyOwner {
-        require(_amount >= 200, "Operations: Invalid performance fee amount");
         require(_amount <= 500, "Operations: Invalid performance fee amount");
         performanceFee = _amount;
         emit NewPerformanceFee(_amount);

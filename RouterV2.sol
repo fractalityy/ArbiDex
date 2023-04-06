@@ -395,7 +395,7 @@ contract ArbiDexRouter is IArbiDexRouter02 {
     address public immutable override factory;
     address public immutable override WETH;
     address public owner;
-    address arbitrage;
+    address public arbitrage;
 
     modifier ensure(uint deadline) {
         require(deadline >= block.timestamp, 'ArbiDexRouter: EXPIRED');

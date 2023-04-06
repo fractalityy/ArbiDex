@@ -725,7 +725,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     /*
      * @notice Withdraw all staked tokens without carrying about rewards or recompounding
      */
-    function emergencyWithdraw() external {
+    function emergencyWithdraw() external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
         require(user.amount > 0, "Withdraw: Nothing to withdraw");
 
@@ -742,6 +742,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @notice Returns the adjusted share price
     */
     function adjustedTokenPerShare() public view returns (uint256 _amount) {
+        if (getTotalSupply() == 0) {return 0;}
         return ((10 ** 18) * getTotalSupply()) / totalSupply;
     }
     

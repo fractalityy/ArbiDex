@@ -552,9 +552,6 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     // The address of the smart chef factory
     address public immutable SMART_CHEF_FACTORY;
 
-    // Whether it is initialized
-    bool public isInitialized;
-
     // The block number when ARX mining ends.
     uint256 public bonusEndBlock;
 
@@ -578,7 +575,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     IERC20Metadata public stakedToken;
 
     // The address that should receive deposit/withdrawal fees
-    address treasury;
+    address public treasury;
 
     // The fee that is associated with a deposit
     uint256 public depositFee = 100;
@@ -602,33 +599,15 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
     event TokenRecovery(address indexed token, uint256 amount);
     event Withdraw(address indexed user, uint256 amount);
 
-    constructor() {
-        SMART_CHEF_FACTORY = msg.sender;
-    }
-
-    /*
-     * @notice Initialize the contract
-     * @param _stakedToken: staked token address
-     * @param _rewardTokens: reward token addresses
-     * @param _rewardsPerBlock: reward per block (for each rewardToken)
-     * @param _startBlock: start block
-     * @param _bonusEndBlock: end block
-     * @param _admin: admin address with ownership
-     */
-    function initialize(
-        IERC20Metadata _stakedToken,
-        IERC20Metadata[] memory _rewardTokens,
-        uint256[] memory _rewardsPerBlock,
-        uint256 _startBlock,
+    constructor(
+        IERC20Metadata _stakedToken, 
+        IERC20Metadata[] memory _rewardTokens, 
+        uint256[] memory _rewardsPerBlock, 
+        uint256 _startBlock, 
         uint256 _bonusEndBlock,
-        address _admin,
         address _treasury
-    ) external {
-        require(!isInitialized, "Already initialized");
-        require(msg.sender == SMART_CHEF_FACTORY, "Not factory");
-
-        // Make this contract initialized
-        isInitialized = true;
+    ) {
+        SMART_CHEF_FACTORY = msg.sender;
 
         stakedToken = _stakedToken;
         rewardTokensList = _rewardTokens;
@@ -645,9 +624,6 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
 
         // Set the lastRewardBlock as the startBlock
         lastRewardBlock = startBlock;
-
-        // Transfer ownership to the admin address who becomes owner of the contract
-        transferOwnership(_admin);
     }
 
     /*
@@ -683,11 +659,13 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
                     stakedToken.burn(feeAmount);
                 }
             }
-            user.amount = user.amount + _amount;
+            user.amount += _amount;
         }
 
         for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
+            if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
+            }
         }
 
         emit Deposit(msg.sender, _amount);
@@ -704,7 +682,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         _updatePool();
 
         if (_amount > 0) {
-            user.amount = user.amount - _amount;
+            user.amount -= _amount;
             stakedToken.safeTransfer(address(msg.sender), _amount);
         }
 
@@ -721,7 +699,9 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         }
 
         for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
+            if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
+            }
         }
 
         emit Withdraw(msg.sender, _amount);
@@ -772,17 +752,34 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @param _treasury: New address that should receive treasury fees
     */
     function setTreasury(address _treasury) external onlyOwner {
-        require(_treasury != address(0), "Address cannot be null");
-        require(_treasury != treasury, "Address provided is the same as current");
+        require(_treasury != address(0), "Operations: Address cannot be null");
+        require(_treasury != treasury, "Operations: Address provided is the same as current");
         treasury = _treasury;
+    }
+
+    /*
+     * @notce Start rewards again at current block's timestamp
+     * @param _bonusEndBlock: New end time stamp for rewards of this staker
+    */
+    function resumeRewards(uint256 _bonusEndBlock) external onlyOwner {
+        require(_bonusEndBlock > bonusEndBlock, "Operations: Bonus end time must be higher than current bonus end time");
+        require(_bonusEndBlock > block.timestamp, "Operations: Bonus end time must be higher than current block timestamp");
+        bonusEndBlock = _bonusEndBlock;
+        startBlock = block.timestamp;
+        lastRewardBlock = startBlock;
+
+        for (uint256 i = 0; i < rewardTokensList.length; i++) {
+            rewardTokens[rewardTokensList[i]].accTokenPerShare = 0;
+        }
+        _updatePool();
     }
 
     /*
      * @notice Stop rewards
      * @dev Only callable by owner
      */
-    function stopReward() external onlyOwner {
-        bonusEndBlock = block.number;
+    function pauseRewards() external onlyOwner {
+        bonusEndBlock = block.timestamp;
     }
 
     /*
@@ -802,9 +799,9 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      * @param _bonusEndBlock: the new end block
      */
     function updateStartAndEndBlocks(uint256 _startBlock, uint256 _bonusEndBlock) external onlyOwner {
-        require(block.number < startBlock, "Pool has started");
-        require(_startBlock < _bonusEndBlock, "New startBlock must be lower than new endBlock");
-        require(block.number < _startBlock, "New startBlock must be higher than current block");
+        require(block.timestamp > startBlock, "Operations: Staker already started");
+        require(_startBlock < _bonusEndBlock, "Operations: New start timestamp must be lower than new end timestamp");
+        require(block.timestamp < _startBlock, "Operations: New start timestamp must be higher than current timestamp");
 
         startBlock = _startBlock;
         bonusEndBlock = _bonusEndBlock;
@@ -829,13 +826,21 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         if (block.timestamp > lastRewardBlock && stakedTokenSupply != 0) {
             uint256 multiplier = _getMultiplier(lastRewardBlock, block.timestamp);
             for (uint256 i = 0; i < rewardTokensList.length; i++) {
-                uint256 ARXReward = multiplier * rewardTokens[rewardTokensList[i]].rewardPerBlock;
-                uint256 adjustedTokenPerShare = rewardTokens[rewardTokensList[i]].accTokenPerShare + (ARXReward * rewardTokens[rewardTokensList[i]].PRECISION_FACTOR) / stakedTokenSupply;
-                amounts[i] = ((user.amount * adjustedTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]]);
+                if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                    uint256 ARXReward = multiplier * rewardTokens[rewardTokensList[i]].rewardPerBlock;
+                    uint256 adjustedTokenPerShare = rewardTokens[rewardTokensList[i]].accTokenPerShare + (ARXReward * rewardTokens[rewardTokensList[i]].PRECISION_FACTOR) / stakedTokenSupply;
+                    amounts[i] = ((user.amount * adjustedTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]]);
+                } else {
+                    amounts[i] = 0;
+                }
             }
         } else {
             for (uint256 i = 0; i < rewardTokensList.length; i++) {
-                amounts[i] = ((user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]]);
+                if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                    amounts[i] = ((user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]]);
+                } else {
+                    amounts[i] = 0;
+                }
             }
         }
         return amounts;
@@ -858,8 +863,10 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
 
         uint256 multiplier = _getMultiplier(lastRewardBlock, block.timestamp);
         for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            uint256 ARXReward = multiplier * rewardTokens[rewardTokensList[i]].rewardPerBlock;
-            rewardTokens[rewardTokensList[i]].accTokenPerShare += (ARXReward * rewardTokens[rewardTokensList[i]].PRECISION_FACTOR) / stakedTokenSupply;
+            if (rewardTokens[rewardTokensList[i]].rewardPerBlock != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                uint256 ARXReward = multiplier * rewardTokens[rewardTokensList[i]].rewardPerBlock;
+                rewardTokens[rewardTokensList[i]].accTokenPerShare += (ARXReward * rewardTokens[rewardTokensList[i]].PRECISION_FACTOR) / stakedTokenSupply;
+            }
         }
         lastRewardBlock = block.timestamp;
     }
@@ -877,63 +884,5 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         } else {
             return bonusEndBlock - _from;
         }
-    }
-}
-
-// File: contracts/SmartChefFactory.sol
-
-contract SmartChefFactory is Ownable {
-    event NewSmartChefContract(address indexed smartChef);
-
-    address[] public deployedSmartChefs;
-
-    /*
-     * @notice Deploy the pool
-     * @param _stakedToken: staked token address
-     * @param _rewardToken: reward token address
-     * @param _rewardPerBlock: reward per block (in rewardToken)
-     * @param _startBlock: start block
-     * @param _endBlock: end block
-     * @param _admin: admin address with ownership
-     * @return address of new smart chef contract
-     */
-    function deployPool(
-        IERC20Metadata _stakedToken,
-        IERC20Metadata[] memory _rewardTokens,
-        uint256[] memory _rewardsPerBlock,
-        uint256 _startBlock,
-        uint256 _bonusEndBlock,
-        address _admin,
-        address _treasury
-    ) external onlyOwner {
-        require(_stakedToken.totalSupply() >= 0);
-        for (uint256 i = 0; i < _rewardTokens.length; i++) {
-            require(_rewardTokens[i].totalSupply() >= 0);
-            require(_stakedToken != _rewardTokens[i], "Tokens must be be different");
-        }
-
-        bytes memory bytecode = type(SmartChefInitializable).creationCode;
-        // pass constructor argument
-        bytecode = abi.encodePacked(bytecode);
-        bytes32 salt = keccak256(abi.encodePacked(_stakedToken, _rewardTokens, _startBlock));
-        address smartChefAddress;
-
-        assembly {
-            smartChefAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
-
-        SmartChefInitializable(smartChefAddress).initialize(
-            _stakedToken,
-            _rewardTokens,
-            _rewardsPerBlock,
-            _startBlock,
-            _bonusEndBlock,
-            _admin,
-            _treasury
-        );
-
-        deployedSmartChefs.push(smartChefAddress);
-
-        emit NewSmartChefContract(smartChefAddress);
     }
 }

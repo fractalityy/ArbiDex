@@ -76,6 +76,10 @@ interface IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
+interface IArbiDexFactory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
 /**
  * @dev Interface for the optional metadata functions from the ERC20 standard.
  *
@@ -563,6 +567,9 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     // The address of the router that is used for conducting swaps
     address immutable public router;
 
+    // The address of the factory used to verify token pairs
+    address immutable public factory;
+
     // The address of the underlying staker where the deposits and withdrawals are made
     address immutable public staker;
 
@@ -574,6 +581,12 @@ contract AutoCompound is Ownable, ReentrancyGuard {
 
     // The address of the USDC token
     address immutable USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+
+    // The address of the USDT token
+    address immutable USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
+
+    // The address of WETH token
+    address immutable WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
     // The fee associated with depositing into the Auto Compounder
     uint256 public depositFee = 100;
@@ -600,22 +613,33 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     constructor(
         address _treasury,
         address _router,
+        address _factory,
         address _staker,
         uint256 _minimumHarvest
     ) {
         treasury = _treasury;
         router = _router;
+        factory = _factory;
         staker = _staker;
         rewardToken = ISmartChefInitializable(staker).rewardToken();
         stakedToken = ISmartChefInitializable(staker).stakedToken();
         minimumHarvest = _minimumHarvest;
 
-        if (rewardToken != USDC) {
-            path = new address[](3);
-            path[0] = rewardToken; path[1] = USDC; path[2] = stakedToken;
-        } else {
+        if (rewardToken != USDC && IArbiDexFactory(factory).getPair(rewardToken, USDT) != address(0)) {
+            // There is a pair directly between the reward and USDT
+            path = new address[](4);
+            path[0] = rewardToken; path[1] = USDT; path[2] = USDC; path[3] = stakedToken;
+        } else if (rewardToken != USDC && IArbiDexFactory(factory).getPair(rewardToken, WETH) != address(0)) {
+            // There is a pair directly betwen the reward and WETH
+            path = new address[](4);
+            path[0] = rewardToken; path[1] = WETH; path[2] = USDC; path[3] = stakedToken;
+        } else if (rewardToken == USDC && IArbiDexFactory(factory).getPair(rewardToken, USDC) != address(0)) {
+            // There is a pair directly between the reward token and USDC
             path = new address[](2);
             path[0] = rewardToken; path[1] = stakedToken;
+        } else {
+            // There was no valid pair between the reward and USDC
+            revert("Operations: Error cannot convert from reward token to staked token");
         }
     }
 

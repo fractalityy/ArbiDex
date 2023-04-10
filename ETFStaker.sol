@@ -546,7 +546,7 @@ library SafeERC20 {
 
 // File: contracts/SmartChefInitializable.sol
 
-contract SmartChefInitializable is Ownable, ReentrancyGuard {
+contract ETFStaker is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20Metadata;
 
     // The address of the smart chef factory
@@ -618,7 +618,7 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < _rewardTokens.length; i++) {
             rewardTokens[_rewardTokens[i]].rewardPerBlock = _rewardsPerBlock[i];
             uint256 decimalsRewardToken = uint256(_rewardTokens[i].decimals());
-            require(decimalsRewardToken < 30, "Must be less than 30");
+            require(decimalsRewardToken < 30, "Operations: Must be less than 30");
             rewardTokens[_rewardTokens[i]].PRECISION_FACTOR = uint256(10**(uint256(30) - decimalsRewardToken));
         }
 
@@ -646,6 +646,12 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
                     }
                 }
             }
+
+            for (uint256 i = 0; i < rewardTokensList.length; i++) {
+                if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                    user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
+                }
+            }
         }
 
         if (_amount > 0) {
@@ -662,12 +668,6 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
             user.amount += _amount;
         }
 
-        for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
-                user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
-            }
-        }
-
         emit Deposit(msg.sender, _amount);
     }
 
@@ -677,31 +677,33 @@ contract SmartChefInitializable is Ownable, ReentrancyGuard {
      */
     function withdraw(uint256 _amount) external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(user.amount >= _amount, "Amount to withdraw too high");
+        require(user.amount >= _amount, "Withdraw: Amount to withdraw too high");
 
         _updatePool();
 
-        if (_amount > 0) {
-            user.amount -= _amount;
-            stakedToken.safeTransfer(address(msg.sender), _amount);
-        }
+        if (user.amount > 0) {
+            for (uint256 i = 0; i < rewardTokensList.length; i++) {
+                uint256 pending = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]];
 
-        for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            uint256 pending = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR - user.rewardDebts[rewardTokensList[i]];
+                if (pending > 0) {
+                    if (pending > rewardTokensList[i].balanceOf(address(this)) && rewardTokensList[i].balanceOf(address(this)) > 0) {
+                        rewardTokensList[i].safeTransfer(address(msg.sender), rewardTokensList[i].balanceOf(address(this)));
+                    } else if (pending <= rewardTokensList[i].balanceOf(address(this))) {
+                        rewardTokensList[i].safeTransfer(address(msg.sender), pending);
+                    }
+                }
+            }
 
-            if (pending > 0) {
-                if (pending > rewardTokensList[i].balanceOf(address(this)) && rewardTokensList[i].balanceOf(address(this)) > 0) {
-                    rewardTokensList[i].safeTransfer(address(msg.sender), rewardTokensList[i].balanceOf(address(this)));
-                } else if (pending <= rewardTokensList[i].balanceOf(address(this))) {
-                    rewardTokensList[i].safeTransfer(address(msg.sender), pending);
+            for (uint256 i = 0; i < rewardTokensList.length; i++) {
+                if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
+                    user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
                 }
             }
         }
 
-        for (uint256 i = 0; i < rewardTokensList.length; i++) {
-            if (rewardTokens[rewardTokensList[i]].accTokenPerShare != 0 && rewardTokens[rewardTokensList[i]].PRECISION_FACTOR != 0) {
-                user.rewardDebts[rewardTokensList[i]] = (user.amount * rewardTokens[rewardTokensList[i]].accTokenPerShare) / rewardTokens[rewardTokensList[i]].PRECISION_FACTOR;
-            }
+        if (_amount > 0) {
+            user.amount -= _amount;
+            stakedToken.safeTransfer(address(msg.sender), _amount);
         }
 
         emit Withdraw(msg.sender, _amount);

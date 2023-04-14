@@ -589,25 +589,28 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     address immutable WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
     // The fee associated with depositing into the Auto Compounder
-    uint256 public depositFee = 100;
+    uint256 public depositFee = 0;
 
     // The performance fee associated whenever the farm/pool is Auto Compounded
-    uint256 public performanceFee = 450;
+    uint256 public performanceFee = 0;
 
     // The minimum amount of reward tokens required for swapping of harvested tokens to occur
     uint256 public minimumHarvest;
 
     // The total supply of staked tokens, that have be deposited by users
-    uint256 totalSupply;
+    uint256 public totalShares;
 
     // An array of the tokens utilized in swapping from reward token back into staked token (during harvesting)
     address[] path;
+
+    // Whether or not deposits are paused
+    bool paused = false;
 
     // Info of each user that stakes tokens (stakedToken)
     mapping(address => UserInfo) public userInfo;
 
     struct UserInfo {
-        uint256 amount; // How many staked tokens the user has provided
+        uint256 shares; // number of shares for a user
     }
 
     constructor(
@@ -664,7 +667,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
         uint256 harvested = IERC20Metadata(rewardToken).balanceOf(address(this));
 
         // Check to see if we have the minimum amount of reward tokens harvested
-        if (harvested < minimumHarvest || harvested == 0 || totalSupply == 0) {return;}
+        if (harvested < minimumHarvest || harvested == 0 || totalShares == 0) {return;}
 
         // Check allowance and see if we need to update
         if (harvested > IERC20Metadata(rewardToken).allowance(address(this), router)) {
@@ -697,53 +700,65 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @notice Deposit staked tokens and collect reward tokens (if any)
      * @param _amount: amount to withdraw (in rewardToken)
      */
-    function deposit(uint256 _amount) external nonReentrant {
+    function deposit(uint256 _shares) external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(_amount > 0, "Deposit: Amount to deposit must be greater than zero");
+        require(paused == false, "Deposit: Currently paused");
+        require(_shares > 0, "Deposit: Amount to deposit must be greater than zero");
 
         // Check allowance and see if we need to update
-        if (_amount > IERC20Metadata(stakedToken).allowance(address(this), staker)) {
+        if (_shares > IERC20Metadata(stakedToken).allowance(address(this), staker)) {
             IERC20Metadata(stakedToken).safeApprove(staker, type(uint256).max);
         }
 
         harvest();
 
-        IERC20Metadata(stakedToken).safeTransferFrom(address(msg.sender), address(this), _amount);
+        // Get the balance of the underlying shares
+        uint256 pool = balanceOf();
+
+        // Transfer the staked token from the user to this contract
+        IERC20Metadata(stakedToken).safeTransferFrom(address(msg.sender), address(this), _shares);
         
         if (depositFee > 0) {
-            uint256 feeAmount = (_amount * depositFee)/10000;
-            _amount -= feeAmount;
+            uint256 feeAmount = (_shares * depositFee)/10000;
+            _shares -= feeAmount;
             IERC20Metadata(stakedToken).safeTransfer(treasury, feeAmount);
             emit DepositFeeCharged(feeAmount);
         }
+
+        uint256 currentShares;
+        if (totalShares != 0) {
+            currentShares = (_shares * totalShares) / pool;
+        } else {
+            currentShares = _shares;
+        }
         
-        user.amount += _amount;
-        totalSupply += _amount;
+        user.shares += currentShares;
+        totalShares += currentShares;
 
+        ISmartChefInitializable(staker).deposit(_shares);
 
-        ISmartChefInitializable(staker).deposit(_amount);
-
-        emit Deposit(msg.sender, _amount);
+        emit Deposit(msg.sender, _shares);
     }
 
     /*
      * @notice Withdraw staked tokens and collect reward tokens
-     * @param _amount: amount to withdraw (in rewardToken)
+     * @param _shares: amount of shares to withdraw (in rewardToken)
      */
-    function withdraw(uint256 _amount) external nonReentrant {
+    function withdraw(uint256 _shares) public nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(user.amount - _amount >= 0, "Withdraw: Amount to withdraw too high");
-        require(_amount > 0, "Withdraw: Amount to withdraw cannot be zero");
+        require(user.shares - _shares >= 0, "Withdraw: Amount exceeds balance");
+        require(_shares > 0, "Withdraw: Amount to withdraw cannot be zero");
 
         harvest();
 
-        uint256 adjustedAmount = (_amount * getTotalSupply()) / totalSupply; 
-        totalSupply -= _amount;
-        user.amount -= _amount;
-        ISmartChefInitializable(staker).withdraw(adjustedAmount);
-        IERC20Metadata(stakedToken).safeTransfer(address(msg.sender), adjustedAmount);
+        uint256 currentAmount = (_shares * balanceOf()) / totalShares;
 
-        emit Withdraw(msg.sender, _amount);
+        totalShares -= _shares;
+        user.shares -= _shares;
+        ISmartChefInitializable(staker).withdraw(currentAmount);
+        IERC20Metadata(stakedToken).safeTransfer(address(msg.sender), currentAmount);
+
+        emit Withdraw(msg.sender, _shares);
     }
 
     /*
@@ -751,32 +766,59 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      */
     function emergencyWithdraw() external nonReentrant {
         UserInfo storage user = userInfo[msg.sender];
-        require(user.amount > 0, "Withdraw: Nothing to withdraw");
+        require(user.shares > 0, "Withdraw: Nothing to withdraw");
 
-        uint256 adjustedAmount = (user.amount * getTotalSupply()) / totalSupply; 
-        totalSupply -= user.amount;
-        user.amount = 0;
-        ISmartChefInitializable(staker).withdraw(adjustedAmount);
-        IERC20Metadata(stakedToken).safeTransfer(address(msg.sender), adjustedAmount);
+        uint256 currentAmount = (user.shares * balanceOf()) / totalShares;
 
-        emit EmergencyWithdraw(msg.sender, user.amount);
-    }
+        totalShares -= user.shares;
+        user.shares -= 0;
+        ISmartChefInitializable(staker).withdraw(currentAmount);
+        IERC20Metadata(stakedToken).safeTransfer(address(msg.sender), currentAmount);
 
-    /*
-     * @notice Returns the adjusted share price
-    */
-    function adjustedTokenPerShare() public view returns (uint256 _amount) {
-        if (getTotalSupply() == 0) {return 0;}
-        return ((10 ** 18) * getTotalSupply()) / totalSupply;
+        emit EmergencyWithdraw(msg.sender, user.shares);
     }
     
     /*
-     * @notice Returns the total supply of the staked token in this contract and the underlying staker
+     * @notice Withdraw all shares
+     */
+    function withdrawAll() external nonReentrant {
+        withdraw(userInfo[msg.sender].shares);
+    }
+
+    function balanceOfUnderlying() internal view returns (uint256) {
+        return totalShares == 0 ? 1e18 : (((IERC20Metadata(stakedToken).balanceOf(address(this))) * (1e18)) / totalShares);
+    }
+
+    /**
+     * @notice Calculates the price per share
+     */
+    function getPricePerFullShare() external view returns (uint256) {
+        return totalShares == 0 ? 1e18 : (balanceOf() * 1e18) / totalShares;
+    }
+
+    /**
+     * @notice Calculates the total underlying tokens
+     * @dev It includes tokens held by the contract and held in ARXPool
+     */
+    function balanceOf() public view returns (uint256) {
+        (uint256 shares, ) = ISmartChefInitializable(staker).userInfo(address(this));
+        uint256 pricePerUnderlying = balanceOfUnderlying();
+
+        return IERC20Metadata(stakedToken).balanceOf(address(this)) + (shares * pricePerUnderlying) / 1e18;
+    }
+
+    /*
+     * @notce Pause the ability to deposit
     */
-    function getTotalSupply() public view returns (uint256 _amount) {
-        (uint256 supply, ) = ISmartChefInitializable(staker).userInfo(address(this));
-        supply += IERC20Metadata(stakedToken).balanceOf(address(this));
-        return supply;
+    function pause() external onlyOwner {
+        paused = true;
+    }
+
+    /*
+     * @notce Unpause and allow deposits again
+    */
+    function unpause() external onlyOwner {
+        paused = false;
     }
 
     /*
@@ -786,8 +828,6 @@ contract AutoCompound is Ownable, ReentrancyGuard {
     */
     function recoverToken(address _token, uint256 _amount) external onlyOwner {
         require(_token != address(0), "Operations: Cannot be zero address");
-        require(_token != address(stakedToken), "Operations: Cannot be staked token");
-        require(_token != address(rewardToken), "Operations: Cannot be reward token");
         IERC20(_token).transfer(treasury, _amount);
         emit TokenRecovery(_token, _amount);
     }
@@ -816,7 +856,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @param _amount: New amount for the deposit fee
     */
     function setDepositFee(uint256 _amount) external onlyOwner {
-        require(_amount <= 250, "Operations: Invalid deposit fee amount");
+        require(_amount <= 500, "Operations: Invalid deposit fee amount");
         depositFee = _amount;
         emit NewDepositFee(_amount);
     }
@@ -826,7 +866,7 @@ contract AutoCompound is Ownable, ReentrancyGuard {
      * @param _amount: New amount for the performance fee
     */
     function setPerformanceFee(uint256 _amount) external onlyOwner {
-        require(_amount <= 500, "Operations: Invalid performance fee amount");
+        require(_amount <= 1000, "Operations: Invalid performance fee amount");
         performanceFee = _amount;
         emit NewPerformanceFee(_amount);
     }
